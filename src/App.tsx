@@ -5,7 +5,7 @@ import { AppProvider } from './context/AppContext'
 export default function App() {
   return (
     <AppProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/duit">
         <Routes>
           <Route path="/" element={<AppShell />} />
           <Route path="/c/:categoryId" element={<AppShell />} />
