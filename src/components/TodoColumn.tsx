@@ -30,6 +30,7 @@ export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
     toggleRecurring,
     setDueDate,
     setCategory,
+    setTaskNote,
     renameCategory,
     setCategoryColor,
     reorderTasks,
@@ -134,6 +135,7 @@ export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
     onToggleRecurring: () => toggleRecurring(taskId),
     onSetDue: (iso: string | null) => setDueDate(taskId, iso),
     onSetCategory: (catId: string | null) => setCategory(taskId, catId),
+    onSetNote: (note: { body: string } | null) => setTaskNote(taskId, note),
     dropEdge:
       dropTarget?.id === taskId ? dropTarget.edge : (null as 'before' | 'after' | null),
     onRowDragOver: (e: DragEvent) => onRowDragOver(e, taskId),

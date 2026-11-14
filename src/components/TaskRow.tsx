@@ -1,8 +1,9 @@
 import { useRef, useState, type KeyboardEvent, type DragEvent } from 'react'
 import { colorById } from '../colors'
 import { dueLabel } from '../dates'
-import type { Category, HashCommand, Task } from '../types'
+import type { Category, HashCommand, Task, TaskNote } from '../types'
 import { HashMenu } from './HashMenu'
+import { StickyNote } from './StickyNote'
 
 type Props = {
   task: Task
@@ -14,6 +15,7 @@ type Props = {
   onToggleRecurring: () => void
   onSetDue: (iso: string | null) => void
   onSetCategory: (id: string | null) => void
+  onSetNote: (note: TaskNote | null) => void
   draggable?: boolean
   /** Hide the category pill (e.g. on a category page). */
   showCategoryTag?: boolean
@@ -35,6 +37,7 @@ export function TaskRow({
   onToggleRecurring,
   onSetDue,
   onSetCategory,
+  onSetNote,
   draggable = true,
   showCategoryTag = true,
   dropEdge = null,
@@ -47,12 +50,14 @@ export function TaskRow({
   const inputRef = useRef<HTMLInputElement>(null)
   const [hashOpen, setHashOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
   const [menuMode, setMenuMode] = useState<'commands' | 'due' | 'category'>(
     'commands',
   )
   const [menuLeft, setMenuLeft] = useState(0)
 
-  const menuVisible = moreOpen || hashOpen
+  const hasNote = Boolean(task.note)
+  const menuVisible = moreOpen || hashOpen || noteOpen
 
   const openHashMenu = () => {
     const el = inputRef.current
@@ -73,6 +78,14 @@ export function TaskRow({
     setMenuMode('commands')
     setHashOpen(false)
     setMoreOpen(true)
+  }
+
+  const openNote = () => {
+    if (!task.note) onSetNote({ body: '' })
+    setHashOpen(false)
+    setMoreOpen(false)
+    setMenuMode('commands')
+    setNoteOpen(true)
   }
 
   const stripHashToken = () => {
@@ -97,6 +110,7 @@ export function TaskRow({
     if (e.key === 'Escape') {
       setHashOpen(false)
       setMoreOpen(false)
+      setNoteOpen(false)
     }
   }
 
@@ -112,6 +126,10 @@ export function TaskRow({
       onToggleRecurring()
       setHashOpen(false)
       setMoreOpen(false)
+      return
+    }
+    if (cmd === 'note') {
+      openNote()
       return
     }
     if (cmd === 'delete') {
@@ -133,7 +151,9 @@ export function TaskRow({
   const onDragStart = (e: DragEvent) => {
     const target = e.target as HTMLElement
     if (
-      target.closest('input, textarea, button, a, .hash-menu, .task-row__more-wrap')
+      target.closest(
+        'input, textarea, button, a, .hash-menu, .task-row__more-wrap, .sticky-note',
+      )
     ) {
       e.preventDefault()
       return
@@ -201,6 +221,21 @@ export function TaskRow({
               {category.name}
             </span>
           )}
+          {hasNote && (
+            <button
+              type="button"
+              className={`task-row__note-icon${noteOpen ? ' is-open' : ''}`}
+              aria-label={noteOpen ? 'Hide sticky note' : 'Show sticky note'}
+              title="Sticky note"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                setNoteOpen((v) => !v)
+              }}
+            >
+              ▤
+            </button>
+          )}
           <div className="task-row__more-wrap">
             <button
               type="button"
@@ -223,6 +258,7 @@ export function TaskRow({
               mode={menuMode}
               variant="more"
               starred={task.starred}
+              hasNote={hasNote}
               currentCategoryId={task.categoryId}
               currentDueDate={task.dueDate}
               onPickCommand={(cmd) => handlePickCommand(cmd, false)}
@@ -249,6 +285,7 @@ export function TaskRow({
           categories={categories}
           mode={menuMode}
           starred={task.starred}
+          hasNote={hasNote}
           currentCategoryId={task.categoryId}
           currentDueDate={task.dueDate}
           onPickCommand={(cmd) => handlePickCommand(cmd, true)}
@@ -269,6 +306,17 @@ export function TaskRow({
             setMenuMode('commands')
           }}
         />
+        {noteOpen && (
+          <StickyNote
+            body={task.note?.body ?? ''}
+            onChange={(body) => onSetNote({ body })}
+            onClose={() => setNoteOpen(false)}
+            onRemove={() => {
+              onSetNote(null)
+              setNoteOpen(false)
+            }}
+          />
+        )}
       </div>
     </div>
   )

@@ -8,6 +8,7 @@ type Props = {
   categories: Category[]
   mode: 'commands' | 'due' | 'category'
   starred?: boolean
+  hasNote?: boolean
   currentCategoryId?: string | null
   currentDueDate?: string | null
   onPickCommand: (cmd: HashCommand) => void
@@ -22,10 +23,14 @@ const HASH_COMMANDS: { id: HashCommand; label: string; hint: string }[] = [
   { id: 'repeat', label: '#repeat', hint: 'Toggle recurring' },
   { id: 'due', label: '#due', hint: 'Set deadline' },
   { id: 'category', label: '#category', hint: 'Assign category' },
+  { id: 'note', label: '#note', hint: 'Sticky note' },
   { id: 'delete', label: '#delete', hint: 'Remove task' },
 ]
 
-function moreCommands(starred: boolean): {
+function moreCommands(
+  starred: boolean,
+  hasNote: boolean,
+): {
   id: HashCommand
   label: string
   hint: string
@@ -40,6 +45,11 @@ function moreCommands(starred: boolean): {
     { id: 'due', label: 'Due date', hint: 'Deadline' },
     { id: 'repeat', label: 'Repeat', hint: 'Toggle recurring' },
     { id: 'category', label: 'Category', hint: 'Move to…' },
+    {
+      id: 'note',
+      label: hasNote ? 'Open Note' : 'Add Note',
+      hint: hasNote ? 'Open sticky' : 'Sticky note',
+    },
     { id: 'delete', label: 'Delete', hint: 'Remove task', danger: true },
   ]
 }
@@ -50,6 +60,7 @@ export function HashMenu({
   categories,
   mode,
   starred = false,
+  hasNote = false,
   currentCategoryId = null,
   currentDueDate = null,
   onPickCommand,
@@ -60,7 +71,7 @@ export function HashMenu({
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const commands =
-    variant === 'more' ? moreCommands(starred) : HASH_COMMANDS
+    variant === 'more' ? moreCommands(starred, hasNote) : HASH_COMMANDS
 
   useEffect(() => {
     if (!open) return

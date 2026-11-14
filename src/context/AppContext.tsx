@@ -10,7 +10,7 @@ import {
 import { nextColorId } from '../colors'
 import { toISODate, uid } from '../dates'
 import { loadState, saveState } from '../storage'
-import type { AppState, Category, Task } from '../types'
+import type { AppState, Category, Task, TaskNote } from '../types'
 
 type AppContextValue = {
   tasks: Task[]
@@ -23,6 +23,7 @@ type AppContextValue = {
   toggleRecurring: (id: string) => void
   setDueDate: (id: string, dueDate: string | null) => void
   setCategory: (id: string, categoryId: string | null) => void
+  setTaskNote: (id: string, note: TaskNote | null) => void
   completeTask: (id: string, completedOn?: string) => void
   uncompleteTask: (id: string) => void
   /** Place a task on a day without checking it (or move between days). */
@@ -73,6 +74,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         status: 'open',
         onDay: null,
         completedOn: null,
+        note: null,
         createdAt: Date.now(),
         order: nextOpenOrder(prev.tasks),
       }
@@ -146,6 +148,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }))
   }, [])
 
+  const setTaskNote = useCallback((id: string, note: TaskNote | null) => {
+    setState((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((t) => (t.id === id ? { ...t, note } : t)),
+    }))
+  }, [])
+
   const completeTask = useCallback((id: string, completedOn?: string) => {
     setState((prev) => {
       const task = prev.tasks.find((t) => t.id === id)
@@ -184,6 +193,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           status: 'open',
           onDay: null,
           completedOn: null,
+          note: null,
           createdAt: Date.now(),
           order: nextOpenOrder(tasks),
         }
@@ -243,6 +253,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             status: 'open',
             onDay: null,
             completedOn: null,
+            note: null,
             createdAt: Date.now(),
             order: nextOpenOrder(tasks),
           }
@@ -460,6 +471,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleRecurring,
       setDueDate,
       setCategory,
+      setTaskNote,
       completeTask,
       uncompleteTask,
       moveToDay,
@@ -483,6 +495,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleRecurring,
       setDueDate,
       setCategory,
+      setTaskNote,
       completeTask,
       uncompleteTask,
       moveToDay,
