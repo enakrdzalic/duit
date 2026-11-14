@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
   type DragEvent,
@@ -21,6 +22,21 @@ export function CategoryBar() {
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const draggingId = useRef<string | null>(null)
   const didDrag = useRef(false)
+  const tabsRef = useRef<HTMLElement>(null)
+
+  // Keep the active category tab visible when the strip scrolls on mobile.
+  useEffect(() => {
+    const root = tabsRef.current
+    if (!root) return
+    const active = root.querySelector('.folder-tab.is-active')
+    if (active instanceof HTMLElement) {
+      active.scrollIntoView({
+        inline: 'nearest',
+        block: 'nearest',
+        behavior: 'smooth',
+      })
+    }
+  }, [categoryId, editingId])
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -107,7 +123,7 @@ export function CategoryBar() {
   }
 
   return (
-    <nav className="folder-tabs" aria-label="Categories">
+    <nav ref={tabsRef} className="folder-tabs" aria-label="Categories">
       <Link
         to="/"
         className={`folder-tab folder-tab--home${!categoryId ? ' is-active' : ''}`}

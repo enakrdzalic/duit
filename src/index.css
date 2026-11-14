@@ -292,24 +292,6 @@ a {
   overflow: hidden;
 }
 
-@media (max-width: 760px) {
-  .app-main {
-    grid-template-columns: 1fr;
-  }
-
-  .days-panel {
-    border-left: none !important;
-    border-top: 1px solid var(--rule);
-    max-height: 42vh;
-  }
-
-  .brand-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.35rem;
-  }
-}
-
 /* —— panes —— */
 .todo-column,
 .days-panel {
@@ -1171,5 +1153,176 @@ a {
   .task-row__check {
     animation: none;
     transition: none;
+  }
+}
+
+/* —— mobile —— */
+@media (max-width: 760px) {
+  .app-shell {
+    min-height: 100dvh;
+    justify-content: flex-start;
+    padding: max(0.75rem, env(safe-area-inset-top))
+      max(0.65rem, env(safe-area-inset-right))
+      max(0.85rem, env(safe-area-inset-bottom))
+      max(0.65rem, env(safe-area-inset-left));
+    gap: 0.65rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .sparkle {
+    display: none;
+  }
+
+  .brand-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    padding: 0 0.15rem;
+  }
+
+  .brand h1 {
+    font-size: clamp(1.75rem, 8vw, 2.2rem);
+  }
+
+  .brand-bar__tag {
+    font-size: 0.7rem;
+  }
+
+  .folder {
+    filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+  }
+
+  /* One-row scrolling tabs */
+  .folder-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.3rem;
+    padding: 0 0.55rem;
+    overscroll-behavior-x: contain;
+  }
+
+  .folder-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .folder-tab {
+    flex: 0 0 auto;
+    padding: 0.55rem 0.95rem 0.75rem;
+    font-size: 0.74rem;
+    max-width: 8.5rem;
+  }
+
+  .folder-tab.is-active {
+    padding-bottom: 0.85rem;
+  }
+
+  .folder__body {
+    border-radius: 22px;
+    border-top-left-radius: 14px;
+  }
+
+  .app-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.95fr);
+    height: min(860px, calc(100dvh - 7.25rem));
+    min-height: 28rem;
+  }
+
+  .todo-column,
+  .days-panel {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .days-panel {
+    border-left: none !important;
+    border-top: 1px solid var(--rule);
+    max-height: none;
+  }
+
+  .pane-header {
+    padding: 0.85rem 1rem 0.3rem;
+  }
+
+  .pane-header h2 {
+    font-size: 1.05rem;
+  }
+
+  .pane-header--days {
+    gap: 0.4rem;
+  }
+
+  .days-panel__hint {
+    font-size: 0.62rem;
+  }
+
+  .todo-block {
+    padding: 0 0.75rem 1rem 0.75rem;
+  }
+
+  .days-panel__scroll {
+    padding: 0 0.75rem 1rem;
+  }
+
+  .task-row {
+    padding: 0.2rem 0.3rem 0.2rem 0.2rem;
+    column-gap: 0.4rem;
+  }
+
+  .task-row__check,
+  .day-item__check {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  .task-row__input {
+    font-size: 0.95rem;
+  }
+
+  .task-row--new {
+    margin-bottom: 0.35rem;
+  }
+
+  .sticky-note {
+    left: 0.35rem;
+    right: 0.35rem;
+    width: auto;
+    max-width: none;
+    transform: none;
+    min-height: 148px;
+  }
+
+  .folder-footer {
+    padding: 0.55rem 0.85rem 0.85rem;
+    min-height: 2.6rem;
+  }
+
+  .day-group {
+    padding: 0.5rem 0.35rem 0.55rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-main {
+    height: calc(100dvh - 6.75rem);
+    min-height: 24rem;
+    grid-template-rows: minmax(0, 1.2fr) minmax(0, 0.9fr);
+  }
+
+  .brand-bar__tag {
+    display: none;
+  }
+
+  .color-dots {
+    gap: 0.28rem;
+  }
+
+  .color-dot {
+    width: 0.95rem;
+    height: 0.95rem;
   }
 }
