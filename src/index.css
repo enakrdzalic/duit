@@ -1213,15 +1213,16 @@ a {
 /* —— mobile —— */
 @media (max-width: 760px) {
   .app-shell {
-    min-height: 100dvh;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
     justify-content: flex-start;
-    padding: max(0.75rem, env(safe-area-inset-top))
-      max(0.65rem, env(safe-area-inset-right))
-      max(0.85rem, env(safe-area-inset-bottom))
-      max(0.65rem, env(safe-area-inset-left));
-    gap: 0.65rem;
-    overflow-x: hidden;
-    overflow-y: auto;
+    padding: max(0.65rem, env(safe-area-inset-top))
+      max(0.55rem, env(safe-area-inset-right))
+      max(0.65rem, env(safe-area-inset-bottom))
+      max(0.55rem, env(safe-area-inset-left));
+    gap: 0.5rem;
+    overflow: hidden;
   }
 
   .sparkle {
@@ -1229,6 +1230,7 @@ a {
   }
 
   .brand-bar {
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.2rem;
@@ -1244,11 +1246,17 @@ a {
   }
 
   .folder {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
     filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
   }
 
   /* One-row scrolling tabs */
   .folder-tabs {
+    flex: 0 0 auto;
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
@@ -1275,21 +1283,27 @@ a {
   }
 
   .folder__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border-radius: 22px;
     border-top-left-radius: 14px;
   }
 
   .app-main {
-    --app-main-h: min(860px, calc(100dvh - 7.25rem));
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.95fr);
-    height: var(--app-main-h);
-    min-height: 28rem;
   }
 
+  /* Don't grow past the viewport on mobile home */
   .folder__body:not(:has(.folder-footer)) .app-main {
-    height: calc(var(--app-main-h) + var(--folder-footer-h));
-    min-height: calc(28rem + var(--folder-footer-h));
+    height: auto;
+    min-height: 0;
   }
 
   .app-main:has(.days-panel.is-collapsed) {
@@ -1300,6 +1314,10 @@ a {
   .days-panel {
     height: 100%;
     min-height: 0;
+  }
+
+  .folder-footer {
+    flex: 0 0 auto;
   }
 
   .days-panel {
@@ -1381,15 +1399,7 @@ a {
 
 @media (max-width: 420px) {
   .app-main {
-    --app-main-h: calc(100dvh - 6.75rem);
-    height: var(--app-main-h);
-    min-height: 24rem;
     grid-template-rows: minmax(0, 1.2fr) minmax(0, 0.9fr);
-  }
-
-  .folder__body:not(:has(.folder-footer)) .app-main {
-    height: calc(var(--app-main-h) + var(--folder-footer-h));
-    min-height: calc(24rem + var(--folder-footer-h));
   }
 
   .app-main:has(.days-panel.is-collapsed) {
