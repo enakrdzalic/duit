@@ -64,10 +64,8 @@ export function AppShell() {
             <TodoColumn categoryId={activeCategoryId} title={title} />
             <DaysPanel categoryId={activeCategoryId} />
           </div>
-          {category && activeCategoryId ? (
+          {category && activeCategoryId && (
             <CategoryDeleteFooter categoryId={activeCategoryId} />
-          ) : (
-            <div className="folder-footer folder-footer--spacer" aria-hidden />
           )}
         </div>
       </div>

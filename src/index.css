@@ -23,6 +23,8 @@
   --font-body: 'Figtree', sans-serif;
   --font-mono: 'DM Mono', ui-monospace, monospace;
   --row-h: 2.15rem;
+  --app-main-h: min(780px, calc(100vh - 8rem));
+  --folder-footer-h: 2.85rem;
   color: var(--ink);
   font-family: var(--font-body);
   font-synthesis: none;
@@ -287,9 +289,14 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.85fr);
   gap: 0;
-  height: min(780px, calc(100vh - 8rem));
+  height: var(--app-main-h);
   min-height: 0;
   overflow: hidden;
+}
+
+/* Home has no delete footer — stretch the main pane so folder height matches */
+.folder__body:not(:has(.folder-footer)) .app-main {
+  height: calc(var(--app-main-h) + var(--folder-footer-h));
 }
 
 /* —— panes —— */
@@ -318,6 +325,58 @@ a {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.days-panel__trailing {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.days-panel__toggle {
+  flex-shrink: 0;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 28%, transparent);
+  background: color-mix(in srgb, var(--folder-deep, #9eb4d0) 35%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 0.28rem 0.55rem;
+  border-radius: 8px;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.days-panel__toggle:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--folder-deep, #9eb4d0) 55%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+@media (min-width: 761px) {
+  .days-panel__toggle {
+    display: none;
+  }
+}
+
+.days-panel.is-collapsed {
+  flex: 0 0 auto;
+  margin: 0.45rem 0.55rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--folder-deep, #9eb4d0) 42%, var(--folder, #b7c9e0));
+  box-shadow: none;
+}
+
+.days-panel.is-collapsed .pane-header--days {
+  padding: 0.55rem 0.75rem;
+}
+
+.days-panel.is-collapsed h2 {
+  color: var(--ink-soft);
 }
 
 .pane-header h2 {
@@ -429,11 +488,6 @@ a {
   /* Match delete-row height even when empty (home) */
   min-height: 2.85rem;
   box-sizing: border-box;
-}
-
-.folder-footer--spacer {
-  border-top-color: transparent;
-  pointer-events: none;
 }
 
 .folder-footer__delete,
@@ -1226,10 +1280,20 @@ a {
   }
 
   .app-main {
+    --app-main-h: min(860px, calc(100dvh - 7.25rem));
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.95fr);
-    height: min(860px, calc(100dvh - 7.25rem));
+    height: var(--app-main-h);
     min-height: 28rem;
+  }
+
+  .folder__body:not(:has(.folder-footer)) .app-main {
+    height: calc(var(--app-main-h) + var(--folder-footer-h));
+    min-height: calc(28rem + var(--folder-footer-h));
+  }
+
+  .app-main:has(.days-panel.is-collapsed) {
+    grid-template-rows: minmax(0, 1fr) auto;
   }
 
   .todo-column,
@@ -1242,6 +1306,15 @@ a {
     border-left: none !important;
     border-top: 1px solid var(--rule);
     max-height: none;
+  }
+
+  .days-panel.is-collapsed {
+    height: auto;
+    margin: 0.4rem 0.45rem 0.5rem;
+  }
+
+  .days-panel.is-collapsed .pane-header--days {
+    padding: 0.5rem 0.65rem;
   }
 
   .pane-header {
@@ -1308,9 +1381,19 @@ a {
 
 @media (max-width: 420px) {
   .app-main {
-    height: calc(100dvh - 6.75rem);
+    --app-main-h: calc(100dvh - 6.75rem);
+    height: var(--app-main-h);
     min-height: 24rem;
     grid-template-rows: minmax(0, 1.2fr) minmax(0, 0.9fr);
+  }
+
+  .folder__body:not(:has(.folder-footer)) .app-main {
+    height: calc(var(--app-main-h) + var(--folder-footer-h));
+    min-height: calc(24rem + var(--folder-footer-h));
+  }
+
+  .app-main:has(.days-panel.is-collapsed) {
+    grid-template-rows: minmax(0, 1fr) auto;
   }
 
   .brand-bar__tag {

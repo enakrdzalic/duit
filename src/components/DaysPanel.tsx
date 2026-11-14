@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -20,6 +21,23 @@ type Props = {
   categoryId?: string | null
 }
 
+const COLLAPSE_KEY = 'duit-days-collapsed'
+
+function readCollapsed(): boolean {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY)
+    if (raw === '1') return true
+    if (raw === '0') return false
+  } catch {
+    /* ignore */
+  }
+  // First visit on a narrow screen: start minimized so todos get the room.
+  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches) {
+    return true
+  }
+  return false
+}
+
 export function DaysPanel({ categoryId = null }: Props) {
   const { tasks, categories, completeTask, uncompleteTask, moveToDay } =
     useApp()
@@ -27,8 +45,34 @@ export function DaysPanel({ categoryId = null }: Props) {
   const today = useMemo(() => toISODate(), [])
   const [overDay, setOverDay] = useState<string | null>(null)
   const [showFutureHint, setShowFutureHint] = useState(true)
+  const [collapsed, setCollapsed] = useState(readCollapsed)
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(max-width: 760px)').matches
+      : false,
+  )
   const scrollRef = useRef<HTMLDivElement>(null)
   const todayRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 760px)')
+    const sync = () => setIsMobile(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile) return
+    try {
+      localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed, isMobile])
+
+  // Minimize only applies on narrow layouts.
+  const minimized = isMobile && collapsed
 
   const tasksByDay = useMemo(() => {
     const map = new Map<string, typeof tasks>()
@@ -57,8 +101,9 @@ export function DaysPanel({ categoryId = null }: Props) {
     scroller.scrollTop += delta
   }
 
-  // Pin "today" to the top of the scroller after layout (once per mount/route).
+  // Pin "today" to the top of the scroller after layout / expand.
   useLayoutEffect(() => {
+    if (minimized) return
     scrollToToday()
     const t0 = window.setTimeout(scrollToToday, 0)
     const t1 = window.setTimeout(scrollToToday, 100)
@@ -66,7 +111,7 @@ export function DaysPanel({ categoryId = null }: Props) {
       window.clearTimeout(t0)
       window.clearTimeout(t1)
     }
-  }, [days, categoryId])
+  }, [days, categoryId, minimized])
 
   const onScroll = (e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget
@@ -81,6 +126,13 @@ export function DaysPanel({ categoryId = null }: Props) {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setOverDay(day)
+  }
+
+  const onPanelDragOver = (e: DragEvent) => {
+    if (!minimized) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setCollapsed(false)
   }
 
   const onDrop = (e: DragEvent, day: string) => {
@@ -102,96 +154,116 @@ export function DaysPanel({ categoryId = null }: Props) {
   }
 
   return (
-    <aside className="days-panel">
+    <aside
+      className={`days-panel${minimized ? ' is-collapsed' : ''}`}
+      onDragOver={onPanelDragOver}
+    >
       <header className="pane-header pane-header--days">
         <h2>days</h2>
-        <p
-          className={`days-panel__hint${showFutureHint ? ' is-visible' : ''}`}
-          aria-hidden={!showFutureHint}
-        >
-          ↑ scroll for upcoming
-        </p>
-      </header>
-      <div
-        className="days-panel__scroll"
-        ref={scrollRef}
-        onScroll={onScroll}
-      >
-        {days.map((day) => {
-          const items = tasksByDay.get(day) ?? []
-          const future = isFutureDay(day, today)
-          const isToday = day === today
-          return (
-            <div
-              key={day}
-              ref={isToday ? todayRef : undefined}
-              className={`day-group${overDay === day ? ' is-drop' : ''}${items.length === 0 ? ' is-empty' : ''}${future ? ' is-future' : ''}${isToday ? ' is-today' : ''}`}
-              onDragOver={(e) => onDragOver(e, day)}
-              onDragLeave={() => setOverDay((d) => (d === day ? null : d))}
-              onDrop={(e) => onDrop(e, day)}
+        <div className="days-panel__trailing">
+          <p
+            className={`days-panel__hint${showFutureHint && !minimized ? ' is-visible' : ''}`}
+            aria-hidden={minimized || !showFutureHint}
+          >
+            ↑ scroll for upcoming
+          </p>
+          {isMobile && (
+            <button
+              type="button"
+              className="days-panel__toggle"
+              aria-expanded={!minimized}
+              aria-controls="days-panel-scroll"
+              title={minimized ? 'Expand days' : 'Minimize days'}
+              onClick={() => setCollapsed((v) => !v)}
             >
-              <h3 className="day-group__title">{formatDayHeading(day)}</h3>
-              {items.length === 0 ? (
-                <p className="day-group__empty">
-                  {future ? 'drop to schedule' : 'drop a task here'}
-                </p>
-              ) : (
-                <ul className="day-group__list">
-                  {items.map((task) => {
-                    const done = task.status === 'done'
-                    const cat = task.categoryId
-                      ? categories.find((c) => c.id === task.categoryId)
-                      : undefined
-                    const catColor = cat ? colorById(cat.colorId) : null
-                    return (
-                      <li
-                        key={task.id}
-                        className={`day-item${done ? ' is-done' : ''}`}
-                        draggable
-                        onDragStart={(e) => onItemDragStart(e, task.id)}
-                      >
-                        <button
-                          type="button"
-                          className={`day-item__check${done ? ' is-done' : ''}`}
-                          aria-label={done ? 'Uncheck task' : 'Complete task'}
-                          title={done ? 'Uncheck' : 'Check off'}
-                          onClick={() =>
-                            done ? uncompleteTask(task.id) : completeTask(task.id, day)
-                          }
-                        />
-                        <span className="day-item__text">{task.text}</span>
-                        {task.recurring && (
-                          <span className="task-row__badge" title="Recurring">
-                            ↻
-                          </span>
-                        )}
-                        {task.dueDate && (
-                          <span
-                            className={`task-row__due${dueLabel(task.dueDate).includes('overdue') ? ' is-late' : ''}`}
-                          >
-                            {dueLabel(task.dueDate)}
-                          </span>
-                        )}
-                        {!categoryId && cat && catColor && (
-                          <span
-                            className="task-row__cat"
-                            style={{
-                              background: catColor.folder,
-                              boxShadow: `inset 0 0 0 1px ${catColor.tab}`,
-                            }}
-                          >
-                            {cat.name}
-                          </span>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </div>
-          )
-        })}
-      </div>
+              {minimized ? 'expand' : 'minimize'}
+            </button>
+          )}
+        </div>
+      </header>
+      {!minimized && (
+        <div
+          id="days-panel-scroll"
+          className="days-panel__scroll"
+          ref={scrollRef}
+          onScroll={onScroll}
+        >
+          {days.map((day) => {
+            const items = tasksByDay.get(day) ?? []
+            const future = isFutureDay(day, today)
+            const isToday = day === today
+            return (
+              <div
+                key={day}
+                ref={isToday ? todayRef : undefined}
+                className={`day-group${overDay === day ? ' is-drop' : ''}${items.length === 0 ? ' is-empty' : ''}${future ? ' is-future' : ''}${isToday ? ' is-today' : ''}`}
+                onDragOver={(e) => onDragOver(e, day)}
+                onDragLeave={() => setOverDay((d) => (d === day ? null : d))}
+                onDrop={(e) => onDrop(e, day)}
+              >
+                <h3 className="day-group__title">{formatDayHeading(day)}</h3>
+                {items.length === 0 ? (
+                  <p className="day-group__empty">nothing to see here…</p>
+                ) : (
+                  <ul className="day-group__list">
+                    {items.map((task) => {
+                      const done = task.status === 'done'
+                      const cat = task.categoryId
+                        ? categories.find((c) => c.id === task.categoryId)
+                        : undefined
+                      const catColor = cat ? colorById(cat.colorId) : null
+                      return (
+                        <li
+                          key={task.id}
+                          className={`day-item${done ? ' is-done' : ''}`}
+                          draggable
+                          onDragStart={(e) => onItemDragStart(e, task.id)}
+                        >
+                          <button
+                            type="button"
+                            className={`day-item__check${done ? ' is-done' : ''}`}
+                            aria-label={done ? 'Uncheck task' : 'Complete task'}
+                            title={done ? 'Uncheck' : 'Check off'}
+                            onClick={() =>
+                              done
+                                ? uncompleteTask(task.id)
+                                : completeTask(task.id, day)
+                            }
+                          />
+                          <span className="day-item__text">{task.text}</span>
+                          {task.recurring && (
+                            <span className="task-row__badge" title="Recurring">
+                              ↻
+                            </span>
+                          )}
+                          {task.dueDate && (
+                            <span
+                              className={`task-row__due${dueLabel(task.dueDate).includes('overdue') ? ' is-late' : ''}`}
+                            >
+                              {dueLabel(task.dueDate)}
+                            </span>
+                          )}
+                          {!categoryId && cat && catColor && (
+                            <span
+                              className="task-row__cat"
+                              style={{
+                                background: catColor.folder,
+                                boxShadow: `inset 0 0 0 1px ${catColor.tab}`,
+                              }}
+                            >
+                              {cat.name}
+                            </span>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </aside>
   )
 }
