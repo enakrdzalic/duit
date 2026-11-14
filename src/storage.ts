@@ -37,6 +37,13 @@ function migrateTasks(raw: unknown[]): Task[] {
         : status === 'done'
           ? completedOn
           : null
+    const rawNote = t.note
+    const note =
+      rawNote &&
+      typeof rawNote === 'object' &&
+      typeof (rawNote as { body?: unknown }).body === 'string'
+        ? { body: (rawNote as { body: string }).body }
+        : null
     return {
       id: typeof t.id === 'string' ? t.id : crypto.randomUUID(),
       text: typeof t.text === 'string' ? t.text : '',
@@ -47,6 +54,7 @@ function migrateTasks(raw: unknown[]): Task[] {
       status,
       onDay,
       completedOn,
+      note,
       createdAt: typeof t.createdAt === 'number' ? t.createdAt : Date.now(),
       order: typeof t.order === 'number' ? t.order : 0,
     }

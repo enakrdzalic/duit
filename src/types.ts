@@ -1,3 +1,7 @@
+export type TaskNote = {
+  body: string
+}
+
 export type Task = {
   id: string
   text: string
@@ -9,6 +13,7 @@ export type Task = {
   /** Day bucket in the days panel (independent of checked state). */
   onDay: string | null
   completedOn: string | null
+  note: TaskNote | null
   createdAt: number
   order: number
 }
@@ -24,4 +29,10 @@ export type AppState = {
   categories: Category[]
 }
 
-export type HashCommand = 'repeat' | 'due' | 'category' | 'priority' | 'delete'
+export type HashCommand =
+  | 'repeat'
+  | 'due'
+  | 'category'
+  | 'priority'
+  | 'note'
+  | 'delete'
