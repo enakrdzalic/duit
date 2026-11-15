@@ -33,6 +33,7 @@ export function CategoryBar() {
   const tabsRef = useRef<HTMLElement>(null)
   const createInputRef = useRef<HTMLInputElement>(null)
   const createFormRef = useRef<HTMLFormElement>(null)
+  const createOverlayRef = useRef<HTMLDivElement>(null)
 
   const updateTabFades = () => {
     const root = tabsRef.current
@@ -128,6 +129,70 @@ export function CategoryBar() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  }, [creating, isMobile])
+
+  // Lock the page + pin the sheet to the visual viewport so the mobile
+  // keyboard can't shove the whole app up when the create field focuses.
+  useEffect(() => {
+    if (!creating || !isMobile) return
+
+    const scrollY = window.scrollY
+    const { documentElement: html, body } = document
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyWidth: body.style.width,
+      bodyLeft: body.style.left,
+    }
+
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.left = '0'
+    body.style.width = '100%'
+
+    const syncOverlay = () => {
+      const overlay = createOverlayRef.current
+      const vv = window.visualViewport
+      if (!overlay || !vv) return
+      overlay.style.top = `${vv.offsetTop}px`
+      overlay.style.left = `${vv.offsetLeft}px`
+      overlay.style.width = `${vv.width}px`
+      overlay.style.height = `${vv.height}px`
+    }
+
+    const pinScroll = () => {
+      if (window.scrollY !== 0) window.scrollTo(0, 0)
+    }
+
+    syncOverlay()
+    const vv = window.visualViewport
+    vv?.addEventListener('resize', syncOverlay)
+    vv?.addEventListener('scroll', syncOverlay)
+    window.addEventListener('scroll', pinScroll, { passive: true })
+
+    const focusId = window.setTimeout(() => {
+      createInputRef.current?.focus({ preventScroll: true })
+      syncOverlay()
+      pinScroll()
+    }, 50)
+
+    return () => {
+      window.clearTimeout(focusId)
+      vv?.removeEventListener('resize', syncOverlay)
+      vv?.removeEventListener('scroll', syncOverlay)
+      window.removeEventListener('scroll', pinScroll)
+      html.style.overflow = prev.htmlOverflow
+      body.style.overflow = prev.bodyOverflow
+      body.style.position = prev.bodyPosition
+      body.style.top = prev.bodyTop
+      body.style.left = prev.bodyLeft
+      body.style.width = prev.bodyWidth
+      window.scrollTo(0, scrollY)
+    }
   }, [creating, isMobile])
 
   const finishCreate = (raw: string) => {
@@ -370,6 +435,7 @@ export function CategoryBar() {
         isMobile &&
         createPortal(
           <div
+            ref={createOverlayRef}
             className="cat-create-overlay"
             role="presentation"
             onClick={cancelCreate}

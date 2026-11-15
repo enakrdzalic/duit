@@ -16,9 +16,21 @@ import {
   isFutureDay,
   toISODate,
 } from '../dates'
+import type { Category, HashCommand, Task } from '../types'
+import { HashMenu } from './HashMenu'
+import { StickyNote } from './StickyNote'
 
 type Props = {
   categoryId?: string | null
+}
+
+type DayTaskItemProps = {
+  task: Task
+  showCategory: boolean
+  categories: Category[]
+  onComplete: () => void
+  onUncomplete: () => void
+  onDragStart: (e: DragEvent, id: string) => void
 }
 
 const COLLAPSE_KEY = 'duit-days-collapsed'
@@ -36,6 +48,189 @@ function readCollapsed(): boolean {
     return true
   }
   return false
+}
+
+function DayTaskItem({
+  task,
+  showCategory,
+  categories,
+  onComplete,
+  onUncomplete,
+  onDragStart,
+}: DayTaskItemProps) {
+  const {
+    setTaskNote,
+    setDueDate,
+    setCategory,
+    toggleStar,
+    toggleRecurring,
+    deleteTask,
+  } = useApp()
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [menuMode, setMenuMode] = useState<'commands' | 'due' | 'category'>(
+    'commands',
+  )
+  const done = task.status === 'done'
+  const hasNote = Boolean(task.note)
+  const menuVisible = moreOpen || noteOpen
+  const cat = task.categoryId
+    ? categories.find((c) => c.id === task.categoryId)
+    : undefined
+  const catColor = cat ? colorById(cat.colorId) : null
+
+  const openNote = () => {
+    if (!task.note) setTaskNote(task.id, { body: '' })
+    setMoreOpen(false)
+    setMenuMode('commands')
+    setNoteOpen(true)
+  }
+
+  const handlePickCommand = (cmd: HashCommand) => {
+    if (cmd === 'priority') {
+      toggleStar(task.id)
+      setMoreOpen(false)
+      return
+    }
+    if (cmd === 'repeat') {
+      toggleRecurring(task.id)
+      setMoreOpen(false)
+      return
+    }
+    if (cmd === 'note') {
+      openNote()
+      return
+    }
+    if (cmd === 'delete') {
+      deleteTask(task.id)
+      setMoreOpen(false)
+      return
+    }
+    if (cmd === 'due') {
+      setMenuMode('due')
+      return
+    }
+    if (cmd === 'category') {
+      setMenuMode('category')
+      return
+    }
+  }
+
+  return (
+    <li
+      className={`day-item${done ? ' is-done' : ''}${menuVisible ? ' is-menu-open' : ''}`}
+      draggable={!menuVisible}
+      onDragStart={(e) => onDragStart(e, task.id)}
+    >
+      <button
+        type="button"
+        className={`day-item__check${done ? ' is-done' : ''}`}
+        aria-label={done ? 'Uncheck task' : 'Complete task'}
+        title={done ? 'Uncheck' : 'Check off'}
+        onClick={() => (done ? onUncomplete() : onComplete())}
+      />
+      <div className="day-item__body">
+        <div className="day-item__line">
+          <span className="day-item__text">{task.text}</span>
+          {task.recurring && (
+            <span className="task-row__badge" title="Recurring">
+              ↻
+            </span>
+          )}
+          {task.dueDate && (
+            <span
+              className={`task-row__due${dueLabel(task.dueDate).includes('overdue') ? ' is-late' : ''}`}
+            >
+              {dueLabel(task.dueDate)}
+            </span>
+          )}
+          {showCategory && cat && catColor && (
+            <span
+              className="task-row__cat"
+              style={{
+                background: catColor.folder,
+                boxShadow: `inset 0 0 0 1px ${catColor.tab}`,
+              }}
+            >
+              {cat.name}
+            </span>
+          )}
+          {hasNote && (
+            <button
+              type="button"
+              className={`task-row__note-icon${noteOpen ? ' is-open' : ''}`}
+              aria-label={noteOpen ? 'Hide sticky note' : 'Show sticky note'}
+              title="Sticky note"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                setNoteOpen((v) => !v)
+              }}
+            >
+              ▤
+            </button>
+          )}
+          <div className="task-row__more-wrap">
+            <button
+              type="button"
+              className={`task-row__more${moreOpen ? ' is-open' : ''}`}
+              aria-label="Task options"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (moreOpen) {
+                  setMoreOpen(false)
+                  setMenuMode('commands')
+                } else {
+                  setMenuMode('commands')
+                  setMoreOpen(true)
+                }
+              }}
+            >
+              ⋯
+            </button>
+            <HashMenu
+              open={moreOpen}
+              categories={categories}
+              mode={menuMode}
+              variant="more"
+              starred={task.starred}
+              hasNote={hasNote}
+              currentCategoryId={task.categoryId}
+              currentDueDate={task.dueDate}
+              onPickCommand={handlePickCommand}
+              onPickDue={(iso) => {
+                setDueDate(task.id, iso)
+                setMoreOpen(false)
+                setMenuMode('commands')
+              }}
+              onPickCategory={(id) => {
+                setCategory(task.id, id)
+                setMoreOpen(false)
+                setMenuMode('commands')
+              }}
+              onClose={() => {
+                setMoreOpen(false)
+                setMenuMode('commands')
+              }}
+            />
+          </div>
+        </div>
+        {noteOpen && (
+          <StickyNote
+            body={task.note?.body ?? ''}
+            autoFocus={!task.note?.body?.trim()}
+            onChange={(body) => setTaskNote(task.id, { body })}
+            onClose={() => setNoteOpen(false)}
+            onRemove={() => {
+              setTaskNote(task.id, null)
+              setNoteOpen(false)
+            }}
+          />
+        )}
+      </div>
+    </li>
+  )
 }
 
 export function DaysPanel({ categoryId = null }: Props) {
@@ -206,57 +401,17 @@ export function DaysPanel({ categoryId = null }: Props) {
                   <p className="day-group__empty">nothing to see here…</p>
                 ) : (
                   <ul className="day-group__list">
-                    {items.map((task) => {
-                      const done = task.status === 'done'
-                      const cat = task.categoryId
-                        ? categories.find((c) => c.id === task.categoryId)
-                        : undefined
-                      const catColor = cat ? colorById(cat.colorId) : null
-                      return (
-                        <li
-                          key={task.id}
-                          className={`day-item${done ? ' is-done' : ''}`}
-                          draggable
-                          onDragStart={(e) => onItemDragStart(e, task.id)}
-                        >
-                          <button
-                            type="button"
-                            className={`day-item__check${done ? ' is-done' : ''}`}
-                            aria-label={done ? 'Uncheck task' : 'Complete task'}
-                            title={done ? 'Uncheck' : 'Check off'}
-                            onClick={() =>
-                              done
-                                ? uncompleteTask(task.id)
-                                : completeTask(task.id, day)
-                            }
-                          />
-                          <span className="day-item__text">{task.text}</span>
-                          {task.recurring && (
-                            <span className="task-row__badge" title="Recurring">
-                              ↻
-                            </span>
-                          )}
-                          {task.dueDate && (
-                            <span
-                              className={`task-row__due${dueLabel(task.dueDate).includes('overdue') ? ' is-late' : ''}`}
-                            >
-                              {dueLabel(task.dueDate)}
-                            </span>
-                          )}
-                          {!categoryId && cat && catColor && (
-                            <span
-                              className="task-row__cat"
-                              style={{
-                                background: catColor.folder,
-                                boxShadow: `inset 0 0 0 1px ${catColor.tab}`,
-                              }}
-                            >
-                              {cat.name}
-                            </span>
-                          )}
-                        </li>
-                      )
-                    })}
+                    {items.map((task) => (
+                      <DayTaskItem
+                        key={task.id}
+                        task={task}
+                        showCategory={!categoryId}
+                        categories={categories}
+                        onComplete={() => completeTask(task.id, day)}
+                        onUncomplete={() => uncompleteTask(task.id)}
+                        onDragStart={onItemDragStart}
+                      />
+                    ))}
                   </ul>
                 )}
               </div>

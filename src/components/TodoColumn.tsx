@@ -49,6 +49,7 @@ export function TodoColumn({
   const [dropActive, setDropActive] = useState(false)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const [touchDraggingId, setTouchDraggingId] = useState<string | null>(null)
+  const [listScrollable, setListScrollable] = useState(false)
   const draggingId = useRef<string | null>(null)
   const dropTargetRef = useRef<DropTarget | null>(null)
   const blockRef = useRef<HTMLDivElement>(null)
@@ -71,6 +72,19 @@ export function TodoColumn({
     .filter((t) => !t.starred)
     .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt)
 
+  // Only scroll the list when tasks actually overflow the pane.
+  useEffect(() => {
+    const el = blockRef.current
+    if (!el) return
+    const sync = () => {
+      setListScrollable(el.scrollHeight > el.clientHeight + 1)
+    }
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [starred.length, rest.length, categoryId])
+
   const onTitleKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -81,7 +95,14 @@ export function TodoColumn({
   const onColumnDragOver = (e: DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
+    // Highlight when a task is dragged in from days (no local drag id yet).
     if (!draggingId.current) setDropActive(true)
+  }
+
+  const onColumnDragLeave = (e: DragEvent) => {
+    const related = e.relatedTarget
+    if (related instanceof Node && e.currentTarget.contains(related)) return
+    setDropActive(false)
   }
 
   const onColumnDrop = (e: DragEvent) => {
@@ -113,7 +134,10 @@ export function TodoColumn({
     e.preventDefault()
     e.stopPropagation()
     e.dataTransfer.dropEffect = 'move'
-    setDropActive(false)
+    // External drag (from days): keep the column red outline.
+    // Internal reorder: only show the insert line.
+    if (!draggingId.current) setDropActive(true)
+    else setDropActive(false)
     if (draggingId.current === id) {
       setDropTarget(null)
       return
@@ -251,7 +275,7 @@ export function TodoColumn({
     <section
       className={`todo-column${dropActive ? ' is-drop' : ''}${touchDraggingId ? ' is-touch-reordering' : ''}`}
       onDragOver={onColumnDragOver}
-      onDragLeave={() => setDropActive(false)}
+      onDragLeave={onColumnDragLeave}
       onDrop={onColumnDrop}
     >
       <header className="pane-header">
@@ -303,7 +327,10 @@ export function TodoColumn({
         )}
       </header>
 
-      <div className="todo-block" ref={blockRef}>
+      <div
+        className={`todo-block${listScrollable ? ' is-scrollable' : ''}`}
+        ref={blockRef}
+      >
         <NewTaskRow
           onSubmit={(text) => addTask(text, categoryId)}
           placeholder={categoryId ? 'add to this category…' : 'new task…'}
