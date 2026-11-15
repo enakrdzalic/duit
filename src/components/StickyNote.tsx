@@ -12,7 +12,9 @@ export function StickyNote({ body, onChange, onClose, onRemove }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    textareaRef.current?.focus()
+    // Avoid popping the keyboard / zooming the page on phones.
+    const finePointer = window.matchMedia('(pointer: fine)').matches
+    if (finePointer) textareaRef.current?.focus()
   }, [])
 
   useEffect(() => {

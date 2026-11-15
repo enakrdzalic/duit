@@ -918,8 +918,19 @@ a {
 
 .task-row__check--ghost {
   display: inline-block;
-  border-color: var(--ink-faint);
-  border-style: dashed;
+  border-style: solid;
+  border-color: rgba(31, 26, 22, 0.28);
+  opacity: 0.85;
+  /* Dashed borders render as broken arcs on mobile Safari */
+  pointer-events: none;
+  cursor: default;
+  transform: none;
+}
+
+.task-row__check--ghost:hover {
+  background: transparent;
+  border-color: rgba(31, 26, 22, 0.28);
+  transform: none;
 }
 
 .task-row__body {
@@ -1505,6 +1516,16 @@ a {
     max-width: 8.5rem;
   }
 
+  /* iOS zooms the page when focused inputs are under 16px */
+  .folder-tab--form > .folder-tab__sizer,
+  .folder-tab--form > input,
+  .task-row__input,
+  .sticky-note__body,
+  .hash-menu__due input,
+  .auth-field input {
+    font-size: 16px;
+  }
+
   .folder-tab.is-active {
     padding-bottom: 0.85rem;
   }
@@ -1595,10 +1616,6 @@ a {
   .day-item__check {
     width: 1.2rem;
     height: 1.2rem;
-  }
-
-  .task-row__input {
-    font-size: 0.95rem;
   }
 
   .task-row--new {
