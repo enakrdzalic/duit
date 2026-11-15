@@ -333,7 +333,7 @@ export function TodoColumn({
       >
         <NewTaskRow
           onSubmit={(text) => addTask(text, categoryId)}
-          placeholder={categoryId ? 'add to this category…' : 'new task…'}
+          placeholder="new task…"
         />
 
         {starred.map((task) => (
