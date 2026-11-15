@@ -7,9 +7,12 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { colorById } from '../colors'
 import { useApp } from '../context/AppContext'
+
+const MOBILE_MQ = '(max-width: 760px)'
 
 export function CategoryBar() {
   const { categories, addCategory, renameCategory, reorderCategories } = useApp()
@@ -20,11 +23,22 @@ export function CategoryBar() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(MOBILE_MQ).matches : false,
+  )
   const draggingId = useRef<string | null>(null)
   const didDrag = useRef(false)
   const tabsRef = useRef<HTMLElement>(null)
   const createInputRef = useRef<HTMLInputElement>(null)
   const createFormRef = useRef<HTMLFormElement>(null)
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_MQ)
+    const sync = () => setIsMobile(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
 
   // Keep the active category tab visible when the strip scrolls on mobile.
   useEffect(() => {
@@ -40,21 +54,36 @@ export function CategoryBar() {
     }
   }, [categoryId, editingId])
 
-  // Focus without scrolling — scrollIntoView inside overflow-x kills iOS focus.
   useEffect(() => {
     if (!creating) return
-    const form = createFormRef.current
-    form?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+    if (!isMobile) {
+      createFormRef.current?.scrollIntoView({
+        inline: 'nearest',
+        block: 'nearest',
+      })
+    }
     const id = window.setTimeout(() => {
       createInputRef.current?.focus({ preventScroll: true })
-    }, 30)
+    }, 40)
     return () => window.clearTimeout(id)
-  }, [creating])
+  }, [creating, isMobile])
 
   const cancelCreate = () => {
     setCreating(false)
     setName('')
   }
+
+  useEffect(() => {
+    if (!creating || !isMobile) return
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCreating(false)
+        setName('')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [creating, isMobile])
 
   const finishCreate = (raw: string) => {
     const trimmed = raw.trim()
@@ -146,6 +175,43 @@ export function CategoryBar() {
     draggingId.current = null
   }
 
+  const createFields = (
+    <>
+      <label className="cat-create__label" htmlFor="cat-create-name">
+        Category name
+      </label>
+      <input
+        id="cat-create-name"
+        ref={createInputRef}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g. errands"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            cancelCreate()
+          }
+        }}
+        spellCheck={false}
+        enterKeyHint="done"
+        autoComplete="off"
+        autoCorrect="off"
+      />
+      <div className="cat-create__actions">
+        <button type="button" className="cat-create__cancel" onClick={cancelCreate}>
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="cat-create__submit"
+          disabled={!name.trim()}
+        >
+          Add category
+        </button>
+      </div>
+    </>
+  )
+
   return (
     <nav ref={tabsRef} className="folder-tabs" aria-label="Categories">
       <Link
@@ -191,7 +257,7 @@ export function CategoryBar() {
           <Link
             key={cat.id}
             to={`/c/${cat.id}`}
-            draggable
+            draggable={!isMobile}
             className={`folder-tab${active ? ' is-active' : ''}${dragOverId === cat.id ? ' is-drag-over' : ''}`}
             style={{
               background: active ? color.folder : color.tab,
@@ -214,7 +280,8 @@ export function CategoryBar() {
           </Link>
         )
       })}
-      {creating ? (
+
+      {creating && !isMobile ? (
         <form
           ref={createFormRef}
           className="folder-tab folder-tab--form folder-tab--create"
@@ -260,6 +327,39 @@ export function CategoryBar() {
           + new
         </button>
       )}
+
+      {creating &&
+        isMobile &&
+        createPortal(
+          <div
+            className="cat-create-overlay"
+            role="presentation"
+            onClick={cancelCreate}
+          >
+            <form
+              className="cat-create-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="cat-create-title"
+              onClick={(e) => e.stopPropagation()}
+              onSubmit={submit}
+            >
+              <div className="cat-create-sheet__top">
+                <h2 id="cat-create-title">New category</h2>
+                <button
+                  type="button"
+                  className="cat-create-sheet__close"
+                  onClick={cancelCreate}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              {createFields}
+            </form>
+          </div>,
+          document.body,
+        )}
     </nav>
   )
 }
