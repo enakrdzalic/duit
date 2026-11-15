@@ -24,8 +24,7 @@ export function CategoryBar() {
   const didDrag = useRef(false)
   const tabsRef = useRef<HTMLElement>(null)
   const createInputRef = useRef<HTMLInputElement>(null)
-  const nameRef = useRef(name)
-  nameRef.current = name
+  const createFormRef = useRef<HTMLFormElement>(null)
 
   // Keep the active category tab visible when the strip scrolls on mobile.
   useEffect(() => {
@@ -41,27 +40,30 @@ export function CategoryBar() {
     }
   }, [categoryId, editingId])
 
-  // Focus create field after mount — autoFocus races with iOS blur and cancels.
+  // Focus without scrolling — scrollIntoView inside overflow-x kills iOS focus.
   useEffect(() => {
     if (!creating) return
-    const input = createInputRef.current
-    if (!input) return
-    input.scrollIntoView({ inline: 'end', block: 'nearest' })
-    const id = window.setTimeout(() => input.focus(), 50)
+    const form = createFormRef.current
+    form?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+    const id = window.setTimeout(() => {
+      createInputRef.current?.focus({ preventScroll: true })
+    }, 30)
     return () => window.clearTimeout(id)
   }, [creating])
 
+  const cancelCreate = () => {
+    setCreating(false)
+    setName('')
+  }
+
   const finishCreate = (raw: string) => {
     const trimmed = raw.trim()
-    if (!trimmed) {
-      setCreating(false)
-      setName('')
-      return
-    }
+    if (!trimmed) return false
     const cat = addCategory(trimmed)
     setName('')
     setCreating(false)
     navigate(`/c/${cat.id}`)
+    return true
   }
 
   const submit = (e: FormEvent) => {
@@ -112,7 +114,6 @@ export function CategoryBar() {
     e.dataTransfer.setData('text/duit-category', id)
     e.dataTransfer.setData('text/plain', id)
     e.dataTransfer.effectAllowed = 'move'
-    // Avoid the browser using the whole link chrome as a giant ghost
     if (e.currentTarget instanceof HTMLElement) {
       e.dataTransfer.setDragImage(e.currentTarget, 20, 16)
     }
@@ -214,32 +215,41 @@ export function CategoryBar() {
         )
       })}
       {creating ? (
-        <form className="folder-tab folder-tab--form" onSubmit={submit}>
-          <span className="folder-tab__sizer" aria-hidden>
-            {name || 'name…'}
-          </span>
+        <form
+          ref={createFormRef}
+          className="folder-tab folder-tab--form folder-tab--create"
+          onSubmit={submit}
+        >
           <input
             ref={createInputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="name…"
-            onBlur={() => {
-              // iOS often blurs during keyboard/open; wait before canceling.
-              window.setTimeout(() => {
-                if (document.activeElement === createInputRef.current) return
-                finishCreate(nameRef.current)
-              }, 180)
-            }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
-                setCreating(false)
-                setName('')
+                e.preventDefault()
+                cancelCreate()
               }
             }}
             spellCheck={false}
             enterKeyHint="done"
             aria-label="New category name"
           />
+          <button
+            type="submit"
+            className="folder-tab__add"
+            disabled={!name.trim()}
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            className="folder-tab__cancel"
+            onClick={cancelCreate}
+            aria-label="Cancel"
+          >
+            ×
+          </button>
         </form>
       ) : (
         <button
