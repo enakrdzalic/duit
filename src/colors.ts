@@ -18,15 +18,15 @@ export const CATEGORY_COLORS: CategoryColor[] = [
   },
   {
     id: 'blush',
-    folder: '#e8a4b8',
-    tab: '#c9839a',
-    highlight: '#f0bdd0',
+    folder: '#d4aebc',
+    tab: '#b58a9a',
+    highlight: '#e0c4ce',
   },
   {
     id: 'peach',
-    folder: '#f0c4a8',
-    tab: '#d4a07e',
-    highlight: '#f6d4be',
+    folder: '#dcc0a8',
+    tab: '#b89a7e',
+    highlight: '#e8d2be',
   },
   {
     id: 'lilac',
@@ -36,15 +36,15 @@ export const CATEGORY_COLORS: CategoryColor[] = [
   },
   {
     id: 'mint',
-    folder: '#b8d4c8',
-    tab: '#8fb3a4',
-    highlight: '#c9e2d8',
+    folder: '#a8c4bc',
+    tab: '#849e96',
+    highlight: '#bdd4cc',
   },
   {
     id: 'butter',
-    folder: '#e8d89a',
-    tab: '#c9b872',
-    highlight: '#f0e4b0',
+    folder: '#e0d4a4',
+    tab: '#c0b07a',
+    highlight: '#ebe2bc',
   },
   {
     id: 'sage',

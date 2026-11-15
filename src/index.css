@@ -10,10 +10,10 @@
   --ink-soft: #4a433c;
   --ink-faint: #7a7268;
   --rule: rgba(31, 26, 22, 0.14);
-  --accent: #e8a4b8;
-  --accent-deep: #d4899e;
-  --pink-folder: #e8a4b8;
-  --star: #e0b84a;
+  --accent: #d4aebc;
+  --accent-deep: #b58a9a;
+  --pink-folder: #d4aebc;
+  --star: #d4c06e;
   --sparkle: #f2e6d8;
   --shadow: 0 28px 60px rgba(0, 0, 0, 0.45);
   --radius-folder: 28px;
@@ -1264,6 +1264,11 @@ a {
   flex: 1;
   min-height: 0;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.days-panel__scroll::-webkit-scrollbar {
+  display: none;
 }
 
 /* —— tasks —— */
