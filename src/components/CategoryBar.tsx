@@ -23,6 +23,9 @@ export function CategoryBar() {
   const draggingId = useRef<string | null>(null)
   const didDrag = useRef(false)
   const tabsRef = useRef<HTMLElement>(null)
+  const createInputRef = useRef<HTMLInputElement>(null)
+  const nameRef = useRef(name)
+  nameRef.current = name
 
   // Keep the active category tab visible when the strip scrolls on mobile.
   useEffect(() => {
@@ -38,12 +41,32 @@ export function CategoryBar() {
     }
   }, [categoryId, editingId])
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    const cat = addCategory(name)
+  // Focus create field after mount — autoFocus races with iOS blur and cancels.
+  useEffect(() => {
+    if (!creating) return
+    const input = createInputRef.current
+    if (!input) return
+    input.scrollIntoView({ inline: 'end', block: 'nearest' })
+    const id = window.setTimeout(() => input.focus(), 50)
+    return () => window.clearTimeout(id)
+  }, [creating])
+
+  const finishCreate = (raw: string) => {
+    const trimmed = raw.trim()
+    if (!trimmed) {
+      setCreating(false)
+      setName('')
+      return
+    }
+    const cat = addCategory(trimmed)
     setName('')
     setCreating(false)
     navigate(`/c/${cat.id}`)
+  }
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    finishCreate(name)
   }
 
   const startEdit = (id: string, current: string) => {
@@ -158,6 +181,7 @@ export function CategoryBar() {
                 onKeyDown={onEditKey}
                 aria-label="Rename category"
                 spellCheck={false}
+                enterKeyHint="done"
               />
             </form>
           )
@@ -195,12 +219,16 @@ export function CategoryBar() {
             {name || 'name…'}
           </span>
           <input
-            autoFocus
+            ref={createInputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="name…"
             onBlur={() => {
-              if (!name.trim()) setCreating(false)
+              // iOS often blurs during keyboard/open; wait before canceling.
+              window.setTimeout(() => {
+                if (document.activeElement === createInputRef.current) return
+                finishCreate(nameRef.current)
+              }, 180)
             }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
@@ -209,6 +237,8 @@ export function CategoryBar() {
               }
             }}
             spellCheck={false}
+            enterKeyHint="done"
+            aria-label="New category name"
           />
         </form>
       ) : (

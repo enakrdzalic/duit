@@ -231,6 +231,55 @@ a {
   color: rgba(246, 239, 230, 0.6);
 }
 
+.boot-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 2rem;
+  background:
+    radial-gradient(ellipse at 15% 10%, #3a2c26 0%, transparent 42%),
+    radial-gradient(ellipse at 85% 90%, #2c3848 0%, transparent 40%),
+    var(--bg);
+  opacity: 1;
+  transition: opacity 420ms ease;
+}
+
+.boot-shell.is-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-shell__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--cream);
+}
+
+.boot-shell__brand h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 5vw, 2.4rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.app-reveal {
+  min-height: 100vh;
+  min-height: 100dvh;
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+
+.app-reveal.is-in {
+  opacity: 1;
+}
+
 .auth-shell > .brand-bar {
   flex: 0 0 auto;
   width: min(1080px, 100%);
@@ -1424,6 +1473,25 @@ a {
   animation-delay: 0.36s;
 }
 
+/* Play exactly one bounce, then hold at rest — no second cycle. */
+.duit-mark--boot i:nth-child(1) {
+  background: #f2d6c9;
+}
+
+.duit-mark--boot i:nth-child(2) {
+  background: #9eb8d9;
+  animation-delay: 0.1s;
+}
+
+.duit-mark--boot i:nth-child(3) {
+  background: #e8a4b8;
+  animation-delay: 0.2s;
+}
+
+.duit-mark--boot i {
+  animation: duit-boot-bounce 0.85s ease-in-out 1 forwards;
+}
+
 @keyframes duit-pulse {
   0%,
   100% {
@@ -1436,11 +1504,32 @@ a {
   }
 }
 
+@keyframes duit-boot-bounce {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.55;
+  }
+  45% {
+    transform: translateY(-7px) scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .duit-mark--live i,
+  .duit-mark--boot i,
   .sparkle,
   .task-row__check {
-    animation: none;
+    animation: none !important;
+    transition: none;
+  }
+
+  .boot-shell,
+  .app-reveal {
     transition: none;
   }
 }
@@ -1514,6 +1603,11 @@ a {
     padding: 0.55rem 0.95rem 0.75rem;
     font-size: 0.74rem;
     max-width: 8.5rem;
+  }
+
+  .folder-tab.folder-tab--form {
+    max-width: min(70vw, 14rem);
+    overflow: visible;
   }
 
   /* iOS zooms the page when focused inputs are under 16px */

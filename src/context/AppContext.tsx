@@ -20,6 +20,8 @@ import type { AppState, Category, Task, TaskNote } from '../types'
 import { useAuth } from './AuthContext'
 
 type AppContextValue = {
+  /** False while signed-in cloud state is still loading. */
+  ready: boolean
   tasks: Task[]
   categories: Category[]
   addTask: (text: string, categoryId?: string | null) => void
@@ -63,8 +65,11 @@ function nextOpenOrder(tasks: Task[]): number {
 export function AppProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const userId = user?.id ?? null
-  const [state, setState] = useState<AppState>(() => loadState(userId))
-  const [hydrated, setHydrated] = useState(false)
+  // Don't paint cached/guest rows before cloud sync when signed in.
+  const [state, setState] = useState<AppState>(() =>
+    userId ? emptyState() : loadState(null),
+  )
+  const [hydrated, setHydrated] = useState(!userId)
   const remoteUpdatedAt = useRef<string | null>(null)
   const syncTimer = useRef<number | null>(null)
   const stateRef = useRef(state)
@@ -74,14 +79,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) {
       setState(loadState(null))
-      setHydrated(false)
+      setHydrated(true)
       remoteUpdatedAt.current = null
       return
     }
 
     let cancelled = false
     setHydrated(false)
-    setState(loadState(userId))
+    setState(emptyState())
 
     ;(async () => {
       try {
@@ -97,14 +102,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
             remoteUpdatedAt.current = await upsertRemoteState(userId, local)
             setState(local)
           } else {
-            remoteUpdatedAt.current = await upsertRemoteState(
-              userId,
-              emptyState(),
-            )
+            const guest = loadState(null)
+            const seed = hasLocalContent(guest) ? guest : emptyState()
+            remoteUpdatedAt.current = await upsertRemoteState(userId, seed)
+            setState(seed)
+            saveState(seed, userId)
           }
         }
       } catch (err) {
         console.error('Failed to sync from Supabase', err)
+        // Fall back to whatever we have locally so the app still opens.
+        if (!cancelled) {
+          const local = loadState(userId)
+          setState(hasLocalContent(local) ? local : loadState(null))
+        }
       } finally {
         if (!cancelled) setHydrated(true)
       }
@@ -121,8 +132,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       saveState(state)
       return
     }
-    saveState(state, userId)
+    // Skip writing the empty bootstrap placeholder before sync finishes.
     if (!hydrated) return
+    saveState(state, userId)
 
     if (syncTimer.current) window.clearTimeout(syncTimer.current)
     syncTimer.current = window.setTimeout(() => {
@@ -570,8 +582,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.categories],
   )
 
+  const ready = !userId || hydrated
+
   const value = useMemo<AppContextValue>(
     () => ({
+      ready,
       tasks: state.tasks,
       categories: state.categories,
       addTask,
@@ -596,6 +611,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getCategory,
     }),
     [
+      ready,
       state.tasks,
       state.categories,
       addTask,
