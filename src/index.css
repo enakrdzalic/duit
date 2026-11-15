@@ -426,24 +426,95 @@ a {
 
 /* —— folder —— */
 .folder {
+  --folder-curve: 22px;
   width: min(1080px, 100%);
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.4));
+  /* Avoid filter on the wrapper — it opens a hairline gap between tabs & body */
+}
+
+/* Scrollable tab lane = flat top between folder curves */
+.folder-tabs-wrap {
+  position: relative;
+  z-index: 1; /* behind folder body lip */
+  width: auto;
+  margin-left: var(--folder-curve);
+  margin-right: var(--folder-curve);
 }
 
 .folder-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
   gap: 0.4rem;
-  padding: 0 1.1rem;
-  margin-bottom: -1px;
+  /* Tuck under the folder body’s top edge */
+  margin-bottom: -3px;
+  padding: 0;
   position: relative;
-  z-index: 2;
+  z-index: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Soft edge dissolve instead of a hard dark overlay */
+  -webkit-mask-image: linear-gradient(#000, #000);
+  mask-image: linear-gradient(#000, #000);
+}
+
+.folder-tabs-wrap.has-fade-left .folder-tabs {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 2.5rem,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 2.5rem,
+    #000 100%
+  );
+}
+
+.folder-tabs-wrap.has-fade-right .folder-tabs {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 0%,
+    #000 calc(100% - 2.5rem),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 0%,
+    #000 calc(100% - 2.5rem),
+    transparent 100%
+  );
+}
+
+.folder-tabs-wrap.has-fade-left.has-fade-right .folder-tabs {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 2.5rem,
+    #000 calc(100% - 2.5rem),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 2.5rem,
+    #000 calc(100% - 2.5rem),
+    transparent 100%
+  );
+}
+
+.folder-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .folder-tab {
+  flex: 0 0 auto;
   appearance: none;
   border: none;
   background: var(--folder-tab);
@@ -452,6 +523,8 @@ a {
   font-size: 0.78rem;
   letter-spacing: 0.01em;
   padding: 0.65rem 1.15rem 0.85rem;
+  /* Lock height so +new ↔ create form doesn’t nudge the folder */
+  min-height: 2.45rem;
   border-radius: var(--radius-tab) var(--radius-tab) 0 0;
   cursor: pointer;
   transition: background 160ms ease, color 160ms ease, transform 160ms ease;
@@ -470,7 +543,7 @@ a {
   background: var(--folder-tab-active);
   color: rgba(31, 26, 22, 0.72);
   font-weight: 500;
-  z-index: 3;
+  z-index: 1;
   padding-bottom: 0.95rem;
   cursor: text;
 }
@@ -488,7 +561,7 @@ a {
   color: rgba(246, 239, 230, 0.55);
   border: 1.5px dashed rgba(246, 239, 230, 0.28);
   border-bottom: none;
-  margin-bottom: 2px;
+  margin-bottom: 0;
   touch-action: manipulation;
 }
 
@@ -737,7 +810,8 @@ a {
     var(--folder-deep, #aec0d8) 100%
   );
   border-radius: var(--radius-folder);
-  border-top-left-radius: 18px;
+  border-top-left-radius: var(--folder-curve);
+  border-top-right-radius: var(--folder-curve);
   /* Content keeps the original tall footprint; footer sits below it */
   box-shadow: var(--shadow);
   color: var(--ink);
@@ -745,6 +819,7 @@ a {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  z-index: 2; /* in front of tabs so the top edge covers them */
   transition: background 220ms ease;
 }
 
@@ -760,8 +835,8 @@ a {
   overflow: hidden;
 }
 
-/* Home has no delete footer — stretch the main pane so folder height matches */
-.folder__body:not(:has(.folder-footer)) .app-main {
+/* Stretch main pane (footer delete row removed) */
+.folder__body .app-main {
   height: calc(var(--app-main-h) + var(--folder-footer-h));
 }
 
@@ -784,6 +859,13 @@ a {
 .pane-header {
   padding: 1.15rem 1.5rem 0.4rem;
   overflow: visible;
+}
+
+/* Same header band on home + category so the task list lines up */
+.todo-column > .pane-header {
+  min-height: calc(1.15rem + (1.15rem * 1.2) + 0.4rem);
+  display: flex;
+  align-items: center;
 }
 
 .pane-header--days {
@@ -851,6 +933,7 @@ a {
   font-weight: 700;
   font-size: 1.15rem;
   letter-spacing: -0.02em;
+  line-height: 1.2;
   color: var(--ink);
 }
 
@@ -914,13 +997,49 @@ a {
   outline: none;
 }
 
+.pane-header__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .color-dots {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   align-items: center;
   flex: 0 0 auto;
-  margin-left: auto;
+}
+
+.pane-header__delete {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(31, 26, 22, 0.12);
+  color: var(--ink-faint);
+  font-size: 0.7rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(31, 26, 22, 0.12);
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.pane-header__delete:hover {
+  background: rgba(180, 71, 93, 0.2);
+  color: #b4475d;
+  transform: scale(1.12);
 }
 
 .color-dot {
@@ -943,67 +1062,124 @@ a {
   box-shadow: 0 0 0 2px var(--ink);
 }
 
-.folder-footer {
-  position: relative;
-  z-index: 1;
+.cat-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
   display: flex;
+  align-items: center;
   justify-content: center;
-  align-items: center;
-  padding: 0.65rem 1.2rem 0.95rem;
-  border-top: 1px solid var(--rule);
-  /* Match delete-row height even when empty (home) */
-  min-height: 2.85rem;
-  box-sizing: border-box;
+  padding: 1.25rem;
+  background: rgba(10, 8, 6, 0.55);
+  animation: cat-overlay-in 180ms ease both;
 }
 
-.folder-footer__delete,
-.folder-footer__yes,
-.folder-footer__cancel {
-  border: none;
-  background: transparent;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
+.cat-delete-sheet {
+  width: min(400px, 100%);
+  padding: 1.35rem 1.25rem 1.2rem;
+  border-radius: 22px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: cat-sheet-in 220ms ease both;
 }
 
-.folder-footer__delete {
-  color: var(--ink-faint);
+.cat-delete-sheet h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-.folder-footer__delete:hover {
-  color: #b4475d;
-  background: rgba(180, 71, 93, 0.1);
-}
-
-.folder-footer__confirm {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
+.cat-delete-sheet__copy {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
   color: var(--ink-soft);
 }
 
-.folder-footer__yes {
-  color: #b4475d;
-  font-weight: 600;
-  background: rgba(180, 71, 93, 0.12);
+.cat-delete-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
-.folder-footer__yes:hover {
-  background: rgba(180, 71, 93, 0.22);
-}
-
-.folder-footer__cancel {
-  color: var(--ink-faint);
-}
-
-.folder-footer__cancel:hover {
+.cat-delete-toggle__option {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.7rem 0.85rem;
+  cursor: pointer;
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.4);
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.cat-delete-toggle__option.is-active {
+  border-color: rgba(31, 26, 22, 0.35);
+  background: rgba(31, 26, 22, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(31, 26, 22, 0.12);
+}
+
+.cat-delete-toggle__label {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.cat-delete-toggle__hint {
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  line-height: 1.35;
+}
+
+.cat-delete-sheet__actions {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+
+.cat-delete-sheet__cancel,
+.cat-delete-sheet__confirm {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cat-delete-sheet__cancel {
+  flex: 1 1 auto;
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+}
+
+.cat-delete-sheet__confirm {
+  flex: 1 1 auto;
+  background: #b4475d;
+  color: #fff;
+}
+
+.cat-delete-sheet__confirm:hover {
+  background: #9a3a4e;
 }
 
 .todo-column.is-drop {
@@ -1014,7 +1190,13 @@ a {
 }
 
 .todo-block {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 1rem 1.25rem 1.15rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 
@@ -1080,6 +1262,23 @@ a {
 
 .task-row.is-menu-open {
   cursor: default;
+}
+
+.task-row.is-touch-dragging {
+  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+  z-index: 4;
+}
+
+.todo-column.is-touch-reordering {
+  touch-action: none;
+  user-select: none;
+}
+
+body.is-task-reordering {
+  overscroll-behavior: none;
+  user-select: none;
 }
 
 .task-row--new {
@@ -1188,20 +1387,31 @@ a {
 }
 
 .task-row__input {
-  flex: 1;
-  min-width: 0;
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 1ch;
+  max-width: 100%;
   border: none;
   outline: none;
   background: transparent;
-  padding: 0.25rem 0;
+  padding: 0.25rem 0.45rem 0.25rem 0.15rem;
   font-size: 1rem;
   font-weight: 600;
   cursor: text;
+  field-sizing: content;
 }
 
 .task-row__input::placeholder {
   color: var(--ink-faint);
   font-weight: 500;
+}
+
+/* Empty stretch after the text — grab to drag */
+.task-row__grip {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0.75rem;
+  min-height: 1.4rem;
 }
 
 .task-row__badge {
@@ -1766,33 +1976,24 @@ a {
   }
 
   .folder {
+    --folder-curve: 18px;
     flex: 1 1 auto;
     min-height: 0;
     width: 100%;
     display: flex;
     flex-direction: column;
-    filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
   }
 
-  /* One-row scrolling tabs */
+  .folder-tabs-wrap {
+    flex: 0 0 auto;
+  }
+
   .folder-tabs {
     flex: 0 0 auto;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
     gap: 0.3rem;
-    padding: 0 0.55rem;
-    overscroll-behavior-x: contain;
-  }
-
-  .folder-tabs::-webkit-scrollbar {
-    display: none;
   }
 
   .folder-tab {
-    flex: 0 0 auto;
     padding: 0.55rem 0.95rem 0.75rem;
     font-size: 0.74rem;
     max-width: 8.5rem;
@@ -1824,7 +2025,9 @@ a {
     flex-direction: column;
     overflow: hidden;
     border-radius: 22px;
-    border-top-left-radius: 14px;
+    border-top-left-radius: var(--folder-curve);
+    border-top-right-radius: var(--folder-curve);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
   }
 
   .app-main {
@@ -1835,8 +2038,8 @@ a {
     grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.95fr);
   }
 
-  /* Don't grow past the viewport on mobile home */
-  .folder__body:not(:has(.folder-footer)) .app-main {
+  /* Don't grow past the viewport on mobile */
+  .folder__body .app-main {
     height: auto;
     min-height: 0;
   }
@@ -1849,10 +2052,6 @@ a {
   .days-panel {
     height: 100%;
     min-height: 0;
-  }
-
-  .folder-footer {
-    flex: 0 0 auto;
   }
 
   .days-panel {
@@ -1874,7 +2073,12 @@ a {
     padding: 0.85rem 1rem 0.3rem;
   }
 
-  .pane-header h2 {
+  .todo-column > .pane-header {
+    min-height: calc(0.85rem + (1.05rem * 1.2) + 0.3rem);
+  }
+
+  .pane-header h2,
+  .pane-header__title {
     font-size: 1.05rem;
   }
 
@@ -1918,11 +2122,6 @@ a {
     min-height: 148px;
   }
 
-  .folder-footer {
-    padding: 0.55rem 0.85rem 0.85rem;
-    min-height: 2.6rem;
-  }
-
   .day-group {
     padding: 0.5rem 0.35rem 0.55rem;
   }
@@ -1945,7 +2144,8 @@ a {
     gap: 0.28rem;
   }
 
-  .color-dot {
+  .color-dot,
+  .pane-header__delete {
     width: 0.95rem;
     height: 0.95rem;
   }

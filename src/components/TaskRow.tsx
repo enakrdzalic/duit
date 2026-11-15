@@ -1,9 +1,21 @@
-import { useRef, useState, type KeyboardEvent, type DragEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type DragEvent,
+  type TouchEvent as ReactTouchEvent,
+} from 'react'
 import { colorById } from '../colors'
 import { dueLabel } from '../dates'
 import type { Category, HashCommand, Task, TaskNote } from '../types'
 import { HashMenu } from './HashMenu'
 import { StickyNote } from './StickyNote'
+
+const TOUCH_LONG_PRESS_MS = 360
+const TOUCH_MOVE_CANCEL_PX = 12
+const INTERACTIVE_SEL =
+  'input, textarea, button, a, .hash-menu, .task-row__more-wrap, .sticky-note'
 
 type Props = {
   task: Task
@@ -20,11 +32,13 @@ type Props = {
   /** Hide the category pill (e.g. on a category page). */
   showCategoryTag?: boolean
   dropEdge?: 'before' | 'after' | null
+  touchDragging?: boolean
   onDragTrack?: () => void
   onRowDragOver?: (e: DragEvent) => void
   onRowDragLeave?: () => void
   onRowDrop?: (e: DragEvent) => void
   onRowDragEnd?: () => void
+  onTouchDragStart?: () => void
 }
 
 export function TaskRow({
@@ -41,13 +55,17 @@ export function TaskRow({
   draggable = true,
   showCategoryTag = true,
   dropEdge = null,
+  touchDragging = false,
   onDragTrack,
   onRowDragOver,
   onRowDragLeave,
   onRowDrop,
   onRowDragEnd,
+  onTouchDragStart,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const longPressTimer = useRef<number | null>(null)
+  const touchOrigin = useRef<{ x: number; y: number } | null>(null)
   const [hashOpen, setHashOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
@@ -55,6 +73,16 @@ export function TaskRow({
     'commands',
   )
   const [menuLeft, setMenuLeft] = useState(0)
+
+  const clearLongPress = () => {
+    if (longPressTimer.current != null) {
+      window.clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+    touchOrigin.current = null
+  }
+
+  useEffect(() => () => clearLongPress(), [])
 
   const hasNote = Boolean(task.note)
   const menuVisible = moreOpen || hashOpen || noteOpen
@@ -150,11 +178,7 @@ export function TaskRow({
 
   const onDragStart = (e: DragEvent) => {
     const target = e.target as HTMLElement
-    if (
-      target.closest(
-        'input, textarea, button, a, .hash-menu, .task-row__more-wrap, .sticky-note',
-      )
-    ) {
+    if (target.closest(INTERACTIVE_SEL)) {
       e.preventDefault()
       return
     }
@@ -164,6 +188,31 @@ export function TaskRow({
     e.dataTransfer.effectAllowed = 'move'
   }
 
+  const onTouchStart = (e: ReactTouchEvent) => {
+    if (!draggable || menuVisible || !onTouchDragStart) return
+    if ((e.target as HTMLElement).closest(INTERACTIVE_SEL)) return
+    if (e.touches.length !== 1) return
+    const t = e.touches[0]
+    touchOrigin.current = { x: t.clientX, y: t.clientY }
+    clearLongPress()
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTimer.current = null
+      touchOrigin.current = null
+      onTouchDragStart()
+    }, TOUCH_LONG_PRESS_MS)
+  }
+
+  const onTouchMove = (e: ReactTouchEvent) => {
+    if (longPressTimer.current == null || !touchOrigin.current) return
+    const t = e.touches[0]
+    if (!t) return
+    const dx = t.clientX - touchOrigin.current.x
+    const dy = t.clientY - touchOrigin.current.y
+    if (dx * dx + dy * dy > TOUCH_MOVE_CANCEL_PX * TOUCH_MOVE_CANCEL_PX) {
+      clearLongPress()
+    }
+  }
+
   const category = task.categoryId
     ? categories.find((c) => c.id === task.categoryId)
     : undefined
@@ -171,13 +220,18 @@ export function TaskRow({
 
   return (
     <div
-      className={`task-row${task.starred ? ' task-row--starred' : ''}${menuVisible ? ' is-menu-open' : ''}${dropEdge === 'before' ? ' is-drop-before' : ''}${dropEdge === 'after' ? ' is-drop-after' : ''}`}
+      data-task-id={task.id}
+      className={`task-row${task.starred ? ' task-row--starred' : ''}${menuVisible ? ' is-menu-open' : ''}${dropEdge === 'before' ? ' is-drop-before' : ''}${dropEdge === 'after' ? ' is-drop-after' : ''}${touchDragging ? ' is-touch-dragging' : ''}`}
       draggable={draggable && !menuVisible}
       onDragStart={draggable ? onDragStart : undefined}
       onDragOver={onRowDragOver}
       onDragLeave={onRowDragLeave}
       onDrop={onRowDrop}
       onDragEnd={onRowDragEnd}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={clearLongPress}
+      onTouchCancel={clearLongPress}
     >
       <button
         type="button"
@@ -192,12 +246,15 @@ export function TaskRow({
             ref={inputRef}
             className="task-row__input"
             value={task.text}
+            size={Math.max(task.text.length, 1)}
             draggable={false}
             onChange={(e) => onTextChange(e.target.value)}
             onKeyDown={handleKeyDown}
             onMouseDown={(e) => e.stopPropagation()}
             spellCheck={false}
           />
+          {/* Fills leftover row width so grab cursor shows past the text */}
+          <span className="task-row__grip" aria-hidden />
           {task.recurring && (
             <span className="task-row__badge" title="Recurring">
               ↻
@@ -309,6 +366,7 @@ export function TaskRow({
         {noteOpen && (
           <StickyNote
             body={task.note?.body ?? ''}
+            autoFocus={!task.note?.body?.trim()}
             onChange={(body) => onSetNote({ body })}
             onClose={() => setNoteOpen(false)}
             onRemove={() => {

@@ -5,7 +5,7 @@ type Props = {
   placeholder?: string
 }
 
-export function NewTaskRow({ onSubmit, placeholder = 'new todo…' }: Props) {
+export function NewTaskRow({ onSubmit, placeholder = 'new task…' }: Props) {
   const [text, setText] = useState('')
 
   const commit = () => {
@@ -32,7 +32,7 @@ export function NewTaskRow({ onSubmit, placeholder = 'new todo…' }: Props) {
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         spellCheck={false}
-        aria-label="Add new todo"
+        aria-label="Add new task"
       />
     </div>
   )

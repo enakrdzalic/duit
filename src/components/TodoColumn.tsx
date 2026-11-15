@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -13,11 +14,16 @@ import { TaskRow } from './TaskRow'
 type Props = {
   categoryId?: string | null
   title?: string
+  onRequestDelete?: () => void
 }
 
 type DropTarget = { id: string; edge: 'before' | 'after' }
 
-export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
+export function TodoColumn({
+  categoryId = null,
+  title = 'Tasks',
+  onRequestDelete,
+}: Props) {
   const {
     tasks,
     categories,
@@ -42,7 +48,12 @@ export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
 
   const [dropActive, setDropActive] = useState(false)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
+  const [touchDraggingId, setTouchDraggingId] = useState<string | null>(null)
   const draggingId = useRef<string | null>(null)
+  const dropTargetRef = useRef<DropTarget | null>(null)
+  const blockRef = useRef<HTMLDivElement>(null)
+
+  dropTargetRef.current = dropTarget
 
   const open = useMemo(() => {
     return tasks.filter((t) => {
@@ -86,9 +97,16 @@ export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
     if (task && (task.onDay || task.status === 'done')) returnToList(id)
   }
 
+  const edgeFromPoint = (
+    el: HTMLElement,
+    clientY: number,
+  ): 'before' | 'after' => {
+    const rect = el.getBoundingClientRect()
+    return clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+  }
+
   const edgeFromEvent = (e: DragEvent): 'before' | 'after' => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+    return edgeFromPoint(e.currentTarget as HTMLElement, e.clientY)
   }
 
   const onRowDragOver = (e: DragEvent, id: string) => {
@@ -123,9 +141,91 @@ export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
 
   const clearDrag = () => {
     draggingId.current = null
+    setTouchDraggingId(null)
     setDropTarget(null)
     setDropActive(false)
   }
+
+  const updateTouchDropTarget = (clientX: number, clientY: number) => {
+    const fromId = draggingId.current
+    if (!fromId) return
+    const stack = document.elementsFromPoint(clientX, clientY)
+    const row = stack.find(
+      (n) =>
+        n instanceof HTMLElement &&
+        n.dataset.taskId &&
+        n.dataset.taskId !== fromId,
+    ) as HTMLElement | undefined
+    if (!row?.dataset.taskId) {
+      setDropTarget(null)
+      return
+    }
+    const id = row.dataset.taskId
+    const edge = edgeFromPoint(row, clientY)
+    setDropTarget((cur) =>
+      cur?.id === id && cur.edge === edge ? cur : { id, edge },
+    )
+
+    // Keep the list scrolling under a finger near the edges.
+    const scroller = blockRef.current
+    if (scroller) {
+      const rect = scroller.getBoundingClientRect()
+      const edgePx = 48
+      if (clientY < rect.top + edgePx) scroller.scrollTop -= 14
+      else if (clientY > rect.bottom - edgePx) scroller.scrollTop += 14
+    }
+  }
+
+  const beginTouchDrag = (id: string) => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    draggingId.current = id
+    setTouchDraggingId(id)
+    setDropActive(false)
+    setDropTarget(null)
+    try {
+      navigator.vibrate?.(12)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const endTouchDrag = () => {
+    const fromId = draggingId.current
+    const target = dropTargetRef.current
+    if (fromId && target && target.id !== fromId) {
+      reorderTasks(fromId, target.id, target.edge, categoryId)
+    }
+    clearDrag()
+  }
+
+  // While a touch-drag is active, track the finger globally (non-passive so
+  // we can prevent scroll) and commit on lift/cancel.
+  useEffect(() => {
+    if (!touchDraggingId) return
+
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length === 0) return
+      e.preventDefault()
+      const t = e.touches[0]
+      updateTouchDropTarget(t.clientX, t.clientY)
+    }
+    const onEnd = () => endTouchDrag()
+
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onEnd)
+    document.addEventListener('touchcancel', onEnd)
+    document.body.classList.add('is-task-reordering')
+    return () => {
+      document.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchend', onEnd)
+      document.removeEventListener('touchcancel', onEnd)
+      document.body.classList.remove('is-task-reordering')
+    }
+    // Intentionally only rebind when drag identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [touchDraggingId, categoryId])
 
   const taskHandlers = (taskId: string) => ({
     onTextChange: (text: string) => updateTaskText(taskId, text),
@@ -138,16 +238,18 @@ export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
     onSetNote: (note: { body: string } | null) => setTaskNote(taskId, note),
     dropEdge:
       dropTarget?.id === taskId ? dropTarget.edge : (null as 'before' | 'after' | null),
+    touchDragging: touchDraggingId === taskId,
     onRowDragOver: (e: DragEvent) => onRowDragOver(e, taskId),
     onRowDragLeave: () =>
       setDropTarget((cur) => (cur?.id === taskId ? null : cur)),
     onRowDrop: (e: DragEvent) => onRowDrop(e, taskId),
     onRowDragEnd: clearDrag,
+    onTouchDragStart: () => beginTouchDrag(taskId),
   })
 
   return (
     <section
-      className={`todo-column${dropActive ? ' is-drop' : ''}`}
+      className={`todo-column${dropActive ? ' is-drop' : ''}${touchDraggingId ? ' is-touch-reordering' : ''}`}
       onDragOver={onColumnDragOver}
       onDragLeave={() => setDropActive(false)}
       onDrop={onColumnDrop}
@@ -169,18 +271,31 @@ export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
               aria-label="Category name"
               spellCheck={false}
             />
-            <div className="color-dots" role="group" aria-label="Category color">
-              {CATEGORY_COLORS.map((c) => (
+            <div className="pane-header__tools">
+              <div className="color-dots" role="group" aria-label="Category color">
+                {CATEGORY_COLORS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`color-dot${category.colorId === c.id ? ' is-active' : ''}`}
+                    style={{ background: c.folder }}
+                    aria-label={`Color ${c.id}`}
+                    title={c.id}
+                    onClick={() => setCategoryColor(category.id, c.id)}
+                  />
+                ))}
+              </div>
+              {onRequestDelete && (
                 <button
-                  key={c.id}
                   type="button"
-                  className={`color-dot${category.colorId === c.id ? ' is-active' : ''}`}
-                  style={{ background: c.folder }}
-                  aria-label={`Color ${c.id}`}
-                  title={c.id}
-                  onClick={() => setCategoryColor(category.id, c.id)}
-                />
-              ))}
+                  className="pane-header__delete"
+                  aria-label="Delete category"
+                  title="Delete category"
+                  onClick={onRequestDelete}
+                >
+                  ×
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -188,10 +303,10 @@ export function TodoColumn({ categoryId = null, title = 'todo' }: Props) {
         )}
       </header>
 
-      <div className="todo-block">
+      <div className="todo-block" ref={blockRef}>
         <NewTaskRow
           onSubmit={(text) => addTask(text, categoryId)}
-          placeholder={categoryId ? 'add to this category…' : 'new todo…'}
+          placeholder={categoryId ? 'add to this category…' : 'new task…'}
         />
 
         {starred.map((task) => (

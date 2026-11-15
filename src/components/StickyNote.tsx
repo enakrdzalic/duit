@@ -5,17 +5,26 @@ type Props = {
   onChange: (body: string) => void
   onClose: () => void
   onRemove: () => void
+  /** Focus the textarea on open (new notes only — not when reopening existing). */
+  autoFocus?: boolean
 }
 
-export function StickyNote({ body, onChange, onClose, onRemove }: Props) {
+export function StickyNote({
+  body,
+  onChange,
+  onClose,
+  onRemove,
+  autoFocus = false,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
+    if (!autoFocus) return
     // Avoid popping the keyboard / zooming the page on phones.
     const finePointer = window.matchMedia('(pointer: fine)').matches
     if (finePointer) textareaRef.current?.focus()
-  }, [])
+  }, [autoFocus])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

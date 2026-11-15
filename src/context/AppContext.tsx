@@ -42,7 +42,7 @@ type AppContextValue = {
   addCategory: (name: string) => Category
   renameCategory: (id: string, name: string) => void
   setCategoryColor: (id: string, colorId: string) => void
-  deleteCategory: (id: string) => void
+  deleteCategory: (id: string, opts?: { deleteOpenTodos?: boolean }) => void
   reorderCategories: (fromId: string, toId: string) => void
   /** Reorder open todos; dropping near a priority/rest item adopts that section. */
   reorderTasks: (
@@ -460,14 +460,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }))
   }, [])
 
-  const deleteCategory = useCallback((id: string) => {
-    setState((prev) => ({
-      categories: prev.categories.filter((c) => c.id !== id),
-      tasks: prev.tasks.map((t) =>
-        t.categoryId === id ? { ...t, categoryId: null } : t,
-      ),
-    }))
-  }, [])
+  const deleteCategory = useCallback(
+    (id: string, opts?: { deleteOpenTodos?: boolean }) => {
+      const deleteOpenTodos = Boolean(opts?.deleteOpenTodos)
+      setState((prev) => ({
+        categories: prev.categories.filter((c) => c.id !== id),
+        tasks: prev.tasks
+          .filter((t) => {
+            if (!deleteOpenTodos || t.categoryId !== id) return true
+            // Drop open list todos; keep day/done items and uncategorize below.
+            return !(t.status === 'open' && !t.onDay)
+          })
+          .map((t) =>
+            t.categoryId === id ? { ...t, categoryId: null } : t,
+          ),
+      }))
+    },
+    [],
+  )
 
   const reorderCategories = useCallback((fromId: string, toId: string) => {
     if (fromId === toId) return

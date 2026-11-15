@@ -1,21 +1,29 @@
 import type { CSSProperties } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { colorById, DEFAULT_FOLDER } from '../colors'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { CategoryBar } from './CategoryBar'
-import { CategoryDeleteFooter } from './CategoryDeleteFooter'
 import { DaysPanel } from './DaysPanel'
+import {
+  DeleteCategoryModal,
+  type DeleteTodoMode,
+} from './DeleteCategoryModal'
 import { DuitMark } from './DuitMark'
 import { TodoColumn } from './TodoColumn'
 
 export function AppShell() {
   const { categoryId } = useParams()
   const navigate = useNavigate()
-  const { getCategory } = useApp()
+  const { getCategory, deleteCategory } = useApp()
   const { signOut, user } = useAuth()
   const category = categoryId ? getCategory(categoryId) : undefined
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  useEffect(() => {
+    setConfirmDelete(false)
+  }, [categoryId])
 
   // If the URL points at a removed category, keep the shell mounted and
   // quietly rewrite to home (avoids a blank-frame flash from <Navigate>).
@@ -26,8 +34,17 @@ export function AppShell() {
   }, [categoryId, category, navigate])
 
   const activeCategoryId = category ? (categoryId ?? null) : null
-  const title = category ? category.name : 'todo'
+  const title = category ? category.name : 'tasks'
   const palette = category ? colorById(category.colorId) : DEFAULT_FOLDER
+
+  function handleConfirmDelete(mode: DeleteTodoMode) {
+    if (!categoryId) return
+    setConfirmDelete(false)
+    deleteCategory(categoryId, {
+      deleteOpenTodos: mode === 'delete',
+    })
+    navigate('/', { replace: true })
+  }
 
   return (
     <div className="app-shell">
@@ -78,14 +95,25 @@ export function AppShell() {
         <CategoryBar />
         <div className="folder__body">
           <div className="app-main">
-            <TodoColumn categoryId={activeCategoryId} title={title} />
+            <TodoColumn
+              categoryId={activeCategoryId}
+              title={title}
+              onRequestDelete={
+                category ? () => setConfirmDelete(true) : undefined
+              }
+            />
             <DaysPanel categoryId={activeCategoryId} />
           </div>
-          {category && activeCategoryId && (
-            <CategoryDeleteFooter categoryId={activeCategoryId} />
-          )}
         </div>
       </div>
+
+      {confirmDelete && category && (
+        <DeleteCategoryModal
+          categoryName={category.name}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
     </div>
   )
 }

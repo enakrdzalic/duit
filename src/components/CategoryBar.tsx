@@ -26,11 +26,30 @@ export function CategoryBar() {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(MOBILE_MQ).matches : false,
   )
+  const [fadeLeft, setFadeLeft] = useState(false)
+  const [fadeRight, setFadeRight] = useState(false)
   const draggingId = useRef<string | null>(null)
   const didDrag = useRef(false)
   const tabsRef = useRef<HTMLElement>(null)
   const createInputRef = useRef<HTMLInputElement>(null)
   const createFormRef = useRef<HTMLFormElement>(null)
+
+  const updateTabFades = () => {
+    const root = tabsRef.current
+    if (!root) {
+      setFadeLeft(false)
+      setFadeRight(false)
+      return
+    }
+    const max = root.scrollWidth - root.clientWidth
+    if (max <= 2) {
+      setFadeLeft(false)
+      setFadeRight(false)
+      return
+    }
+    setFadeLeft(root.scrollLeft > 2)
+    setFadeRight(root.scrollLeft < max - 2)
+  }
 
   useEffect(() => {
     const mq = window.matchMedia(MOBILE_MQ)
@@ -40,7 +59,7 @@ export function CategoryBar() {
     return () => mq.removeEventListener('change', sync)
   }, [])
 
-  // Keep the active category tab visible when the strip scrolls on mobile.
+  // Keep the active category tab visible inside the scroll lane.
   useEffect(() => {
     const root = tabsRef.current
     if (!root) return
@@ -52,15 +71,41 @@ export function CategoryBar() {
         behavior: 'smooth',
       })
     }
-  }, [categoryId, editingId])
+    updateTabFades()
+  }, [categoryId, editingId, categories.length, creating])
+
+  useEffect(() => {
+    const root = tabsRef.current
+    if (!root) return
+    updateTabFades()
+    const onScroll = () => updateTabFades()
+    root.addEventListener('scroll', onScroll, { passive: true })
+    const ro = new ResizeObserver(() => updateTabFades())
+    ro.observe(root)
+    window.addEventListener('resize', updateTabFades)
+    return () => {
+      root.removeEventListener('scroll', onScroll)
+      ro.disconnect()
+      window.removeEventListener('resize', updateTabFades)
+    }
+  }, [categories.length])
 
   useEffect(() => {
     if (!creating) return
+    // Keep scroll inside the tab lane only — never scroll the page
+    // (scrollIntoView was shifting the whole folder up).
     if (!isMobile) {
-      createFormRef.current?.scrollIntoView({
-        inline: 'nearest',
-        block: 'nearest',
-      })
+      const form = createFormRef.current
+      const root = tabsRef.current
+      if (form && root) {
+        const left = form.offsetLeft
+        const right = left + form.offsetWidth
+        if (right > root.scrollLeft + root.clientWidth) {
+          root.scrollLeft = right - root.clientWidth
+        } else if (left < root.scrollLeft) {
+          root.scrollLeft = left
+        }
+      }
     }
     const id = window.setTimeout(() => {
       createInputRef.current?.focus({ preventScroll: true })
@@ -213,12 +258,15 @@ export function CategoryBar() {
   )
 
   return (
+    <div
+      className={`folder-tabs-wrap${fadeLeft ? ' has-fade-left' : ''}${fadeRight ? ' has-fade-right' : ''}`}
+    >
     <nav ref={tabsRef} className="folder-tabs" aria-label="Categories">
       <Link
         to="/"
         className={`folder-tab folder-tab--home${!categoryId ? ' is-active' : ''}`}
       >
-        home
+        Home
       </Link>
       {categories.map((cat) => {
         const color = colorById(cat.colorId)
@@ -284,14 +332,20 @@ export function CategoryBar() {
       {creating && !isMobile ? (
         <form
           ref={createFormRef}
-          className="folder-tab folder-tab--form folder-tab--create"
+          className="folder-tab folder-tab--form"
           onSubmit={submit}
         >
+          <span className="folder-tab__sizer" aria-hidden>
+            {name || 'name…'}
+          </span>
           <input
             ref={createInputRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="name…"
+            onBlur={() => {
+              if (!name.trim()) cancelCreate()
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 e.preventDefault()
@@ -299,24 +353,8 @@ export function CategoryBar() {
               }
             }}
             spellCheck={false}
-            enterKeyHint="done"
             aria-label="New category name"
           />
-          <button
-            type="submit"
-            className="folder-tab__add"
-            disabled={!name.trim()}
-          >
-            Add
-          </button>
-          <button
-            type="button"
-            className="folder-tab__cancel"
-            onClick={cancelCreate}
-            aria-label="Cancel"
-          >
-            ×
-          </button>
         </form>
       ) : (
         <button
@@ -361,5 +399,6 @@ export function CategoryBar() {
           document.body,
         )}
     </nav>
+    </div>
   )
 }
