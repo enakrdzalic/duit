@@ -43,6 +43,11 @@ html {
   background-color: var(--bg);
   height: 100%;
   height: -webkit-fill-available;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
 }
 
 html,
@@ -61,6 +66,20 @@ body {
     var(--bg);
   background-color: var(--bg);
   color: var(--cream);
+  scrollbar-width: none;
+}
+
+body::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbars everywhere; scrolling still works */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
 }
 
 button,
@@ -1256,7 +1275,6 @@ a {
   -webkit-overflow-scrolling: touch;
 }
 
-
 .days-panel__scroll {
   overflow-x: hidden;
   overflow-y: auto;
@@ -1264,11 +1282,6 @@ a {
   flex: 1;
   min-height: 0;
   overscroll-behavior: contain;
-  scrollbar-width: none;
-}
-
-.days-panel__scroll::-webkit-scrollbar {
-  display: none;
 }
 
 /* —— tasks —— */
