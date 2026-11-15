@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { colorById, DEFAULT_FOLDER } from '../colors'
 import { useApp } from '../context/AppContext'
+import { useAuth } from '../context/AuthContext'
 import { CategoryBar } from './CategoryBar'
 import { CategoryDeleteFooter } from './CategoryDeleteFooter'
 import { DaysPanel } from './DaysPanel'
@@ -13,6 +14,7 @@ export function AppShell() {
   const { categoryId } = useParams()
   const navigate = useNavigate()
   const { getCategory } = useApp()
+  const { signOut, user } = useAuth()
   const category = categoryId ? getCategory(categoryId) : undefined
 
   // If the URL points at a removed category, keep the shell mounted and
@@ -44,7 +46,22 @@ export function AppShell() {
           <DuitMark size="lg" />
           <h1>düit</h1>
         </Link>
-        <p className="brand-bar__tag">do it · then archive it</p>
+        <div className="brand-bar__right">
+          {user ? (
+            <button
+              type="button"
+              className="auth-signout"
+              onClick={() => void signOut()}
+              title={user.email ?? 'sign out'}
+            >
+              Sign out
+            </button>
+          ) : (
+            <Link to="/login" className="sync-cta">
+              Sign in to sync across devices
+            </Link>
+          )}
+        </div>
       </header>
 
       <div

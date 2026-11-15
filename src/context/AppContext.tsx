@@ -4,13 +4,20 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { nextColorId } from '../colors'
 import { toISODate, uid } from '../dates'
-import { loadState, saveState } from '../storage'
+import { emptyState, loadState, saveState } from '../storage'
+import {
+  fetchRemoteState,
+  hasLocalContent,
+  upsertRemoteState,
+} from '../sync'
 import type { AppState, Category, Task, TaskNote } from '../types'
+import { useAuth } from './AuthContext'
 
 type AppContextValue = {
   tasks: Task[]
@@ -54,11 +61,115 @@ function nextOpenOrder(tasks: Task[]): number {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(() => loadState())
+  const { user } = useAuth()
+  const userId = user?.id ?? null
+  const [state, setState] = useState<AppState>(() => loadState(userId))
+  const [hydrated, setHydrated] = useState(false)
+  const remoteUpdatedAt = useRef<string | null>(null)
+  const syncTimer = useRef<number | null>(null)
+  const stateRef = useRef(state)
+  stateRef.current = state
 
+  // Reload + pull cloud when the signed-in user changes.
   useEffect(() => {
-    saveState(state)
-  }, [state])
+    if (!userId) {
+      setState(loadState(null))
+      setHydrated(false)
+      remoteUpdatedAt.current = null
+      return
+    }
+
+    let cancelled = false
+    setHydrated(false)
+    setState(loadState(userId))
+
+    ;(async () => {
+      try {
+        const remote = await fetchRemoteState(userId)
+        if (cancelled) return
+        if (remote) {
+          remoteUpdatedAt.current = remote.updatedAt
+          setState(remote.data)
+          saveState(remote.data, userId)
+        } else {
+          const local = loadState(userId)
+          if (hasLocalContent(local)) {
+            remoteUpdatedAt.current = await upsertRemoteState(userId, local)
+            setState(local)
+          } else {
+            remoteUpdatedAt.current = await upsertRemoteState(
+              userId,
+              emptyState(),
+            )
+          }
+        }
+      } catch (err) {
+        console.error('Failed to sync from Supabase', err)
+      } finally {
+        if (!cancelled) setHydrated(true)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  // Persist locally always; debounce cloud upsert after hydrate.
+  useEffect(() => {
+    if (!userId) {
+      saveState(state)
+      return
+    }
+    saveState(state, userId)
+    if (!hydrated) return
+
+    if (syncTimer.current) window.clearTimeout(syncTimer.current)
+    syncTimer.current = window.setTimeout(() => {
+      upsertRemoteState(userId, stateRef.current)
+        .then((updatedAt) => {
+          remoteUpdatedAt.current = updatedAt
+        })
+        .catch((err) => console.error('Failed to sync to Supabase', err))
+    }, 450)
+
+    return () => {
+      if (syncTimer.current) window.clearTimeout(syncTimer.current)
+    }
+  }, [state, userId, hydrated])
+
+  // Pull newer remote when returning to the tab (phone ↔ desktop).
+  useEffect(() => {
+    if (!userId || !hydrated) return
+
+    const pullIfNewer = async () => {
+      try {
+        const remote = await fetchRemoteState(userId)
+        if (!remote?.updatedAt) return
+        if (
+          remoteUpdatedAt.current &&
+          remote.updatedAt <= remoteUpdatedAt.current
+        ) {
+          return
+        }
+        remoteUpdatedAt.current = remote.updatedAt
+        setState(remote.data)
+        saveState(remote.data, userId)
+      } catch (err) {
+        console.error('Failed to refresh from Supabase', err)
+      }
+    }
+
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void pullIfNewer()
+    }
+    window.addEventListener('focus', pullIfNewer)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('focus', pullIfNewer)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [userId, hydrated])
 
   const addTask = useCallback((text: string, categoryId: string | null = null) => {
     const trimmed = text.trim()

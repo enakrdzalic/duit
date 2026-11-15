@@ -8,6 +8,10 @@ export const emptyState = (): AppState => ({
   categories: [],
 })
 
+function storageKey(userId?: string | null): string {
+  return userId ? `${KEY}:${userId}` : KEY
+}
+
 function migrateCategories(raw: unknown[]): Category[] {
   const used: string[] = []
   return raw.map((item) => {
@@ -61,23 +65,35 @@ function migrateTasks(raw: unknown[]): Task[] {
   })
 }
 
-export function loadState(): AppState {
+export function migrateState(raw: unknown): AppState {
+  if (!raw || typeof raw !== 'object') return emptyState()
+  const parsed = raw as Partial<AppState>
+  if (!Array.isArray(parsed.tasks) || !Array.isArray(parsed.categories)) {
+    return emptyState()
+  }
+  return {
+    tasks: migrateTasks(parsed.tasks),
+    categories: migrateCategories(parsed.categories),
+  }
+}
+
+export function loadState(userId?: string | null): AppState {
   try {
-    const raw = localStorage.getItem(KEY)
-    if (!raw) return emptyState()
-    const parsed = JSON.parse(raw) as AppState
-    if (!parsed || !Array.isArray(parsed.tasks) || !Array.isArray(parsed.categories)) {
+    const raw = localStorage.getItem(storageKey(userId))
+    if (!raw) {
+      // First login: seed from any pre-auth local data.
+      if (userId) {
+        const guest = localStorage.getItem(KEY)
+        if (guest) return migrateState(JSON.parse(guest))
+      }
       return emptyState()
     }
-    return {
-      tasks: migrateTasks(parsed.tasks),
-      categories: migrateCategories(parsed.categories),
-    }
+    return migrateState(JSON.parse(raw))
   } catch {
     return emptyState()
   }
 }
 
-export function saveState(state: AppState): void {
-  localStorage.setItem(KEY, JSON.stringify(state))
+export function saveState(state: AppState, userId?: string | null): void {
+  localStorage.setItem(storageKey(userId), JSON.stringify(state))
 }
